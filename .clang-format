@@ -1,0 +1,151 @@
+# Note that we don't specify the language in this file because some files are
+# detected as Cpp, but others are detected as ObjC and we want this formatting
+# to apply to all types of files.
+BasedOnStyle: LLVM
+AccessModifierOffset: -2
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveBitFields: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+AlignOperands: AlignAfterOperator
+AllowAllArgumentsOnNextLine: true
+AlignTrailingComments:
+  Kind: Never
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowAllConstructorInitializersOnNextLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakTemplateDeclarations: Yes
+AttributeMacros: [
+                  '_CCCL_ALIGNAS_TYPE',
+                  '_CCCL_ALIGNAS',
+                  '_CCCL_CONSTEXPR_CXX20',
+                  '_CCCL_CONSTEXPR_CXX23',
+                  '_CCCL_DEVICE',
+                  '_CCCL_FORCEINLINE',
+                  '_CCCL_HIDE_FROM_ABI',
+                  '_CCCL_HOST_DEVICE',
+                  '_CCCL_HOST',
+                  '_CCCL_NO_UNIQUE_ADDRESS',
+                  '_CCCL_NODISCARD_FRIEND',
+                  '_CCCL_TYPE_VISIBILITY_DEFAULT',
+                  '_CCCL_VISIBILITY_HIDDEN',
+                  'CUB_RUNTIME_FUNCTION',
+                  'CUB_DETAIL_KERNEL_ATTRIBUTES',
+                  'THRUST_RUNTIME_FUNCTION',
+                  'THRUST_DETAIL_KERNEL_ATTRIBUTES',
+                  '_LIBCUDACXX_DEPRECATED_IN_CXX11',
+                  '_LIBCUDACXX_DEPRECATED_IN_CXX14',
+                  '_LIBCUDACXX_DEPRECATED_IN_CXX17',
+                  '_LIBCUDACXX_DEPRECATED_IN_CXX20',
+                  '_LIBCUDACXX_DEPRECATED',
+                  '_LIBCUDACXX_HIDE_FROM_ABI',
+                  '_CUDAX_API',
+                  '_CUDAX_HOST_API',
+                  '_CUDAX_DEVICE_API',
+                  '_CUDAX_TRIVIAL_API',
+                  '_CUDAX_TRIVIAL_HOST_API',
+                  '_CUDAX_TRIVIAL_DEVICE_API',
+                 ]
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+BreakBeforeConceptDeclarations: true
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+ColumnLimit: 120
+CompactNamespaces: false
+ContinuationIndentWidth: 4
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: Always
+FixNamespaceComments: true
+IndentWrappedFunctionNames: false
+InsertBraces: true
+IndentCaseLabels: true
+InsertNewlineAtEOF: true
+InsertTrailingCommas: Wrapped
+IndentRequires: true
+IndentPPDirectives: AfterHash
+IndentWidth: 4
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+Macros:
+- _CCCL_TEMPLATE(...)=template<...>
+- _CCCL_REQUIRES(...)=requires (...)
+WhitespaceSensitiveMacros:
+- _CCCL_HAS_INCLUDE
+NamespaceIndentation: None
+PackConstructorInitializers: Never
+PenaltyBreakAssignment: 30
+PenaltyBreakBeforeFirstCallParameter: 50
+PenaltyBreakComment: 0
+PenaltyBreakFirstLessLess: 0
+PenaltyBreakString: 70
+PenaltyBreakTemplateDeclaration: 0
+PenaltyExcessCharacter: 100
+PenaltyReturnTypeOnItsOwnLine: 90
+PenaltyIndentedWhitespace: 2
+PointerAlignment: Left
+ReflowComments: true
+RemoveSemicolon: false
+SortIncludes: false
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: c++20
+StatementMacros: [
+  '_CCCL_EXEC_CHECK_DISABLE',
+  'CUB_NAMESPACE_BEGIN',
+  'CUB_NAMESPACE_END',
+  'THRUST_NAMESPACE_BEGIN',
+  'THRUST_NAMESPACE_END',
+  '_LIBCUDACXX_BEGIN_NAMESPACE_STD',
+  '_LIBCUDACXX_END_NAMESPACE_STD',
+  '_LIBCUDACXX_BEGIN_NAMESPACE_STD_NOVERSION',
+  '_LIBCUDACXX_END_NAMESPACE_STD_NOVERSION',
+  '_LIBCUDACXX_BEGIN_NAMESPACE_RANGES',
+  '_LIBCUDACXX_END_NAMESPACE_RANGES',
+  '_LIBCUDACXX_BEGIN_NAMESPACE_RANGES_ABI',
+  '_LIBCUDACXX_END_NAMESPACE_RANGES_ABI',
+  '_LIBCUDACXX_BEGIN_NAMESPACE_CPO',
+  '_LIBCUDACXX_END_NAMESPACE_CPO',
+  '_LIBCUDACXX_BEGIN_NAMESPACE_VIEWS',
+  '_LIBCUDACXX_END_NAMESPACE_VIEWS',
+]
+TabWidth: 4
+UseTab: Never
