@@ -164,11 +164,11 @@ void evaluateSplatClipData(CudaTimer& timer, int32_t count)
     // Dispatch as many groups as required.
     constexpr int32_t threadPerBlock = 256;
     const int32_t numBlocks = (count + threadPerBlock - 1) / threadPerBlock;
-    const auto dimGrid = dim3(threadPerBlock);
-    const auto dimBlock = dim3(numBlocks);
+    const auto dimBlock = dim3(threadPerBlock);
+    const auto dimGrid = dim3(numBlocks);
 
     timer.start();
-    evaluateSplatClipDataKernel<<<dimBlock, dimGrid>>>();
+    evaluateSplatClipDataKernel<<<dimGrid, dimBlock>>>();
     timer.stop();
 
     if (cudaGetLastError() != cudaSuccess)
@@ -598,11 +598,11 @@ int32_t buildTileList(CudaTimer& timer, int32_t numBlocks, int32_t tileListCapac
     // Note that number of groups is passed by the caller.
     // Recall that we have persistent group: they run as long as there is remaining work.
     // This is why the workload is not considered for dispatch parameters.
-    const auto dimGrid = dim3(k_BuildTileListsThreadsPerGroup);
-    const auto dimBlock = dim3(numBlocks);
+    const auto dimBlock = dim3(k_BuildTileListsThreadsPerGroup);
+    const auto dimGrid = dim3(numBlocks);
 
     timer.start();
-    buildTileListKernel<<<dimBlock, dimGrid>>>();
+    buildTileListKernel<<<dimGrid, dimBlock>>>();
     timer.stop();
 
     checkCudaErrors(cudaMemcpyFromSymbol(&initCounter, g_TileCounter, sizeof(int32_t), 0, cudaMemcpyDeviceToHost));
@@ -707,11 +707,11 @@ void evaluateTileRange(CudaTimer& timer, int32_t tileListSize)
 {
     constexpr int32_t threadPerBlock = 256;
     const int32_t numBlocks = (tileListSize + threadPerBlock - 1) / threadPerBlock;
-    const auto dimGrid = dim3(threadPerBlock);
-    const auto dimBlock = dim3(numBlocks);
+    const auto dimBlock = dim3(threadPerBlock);
+    const auto dimGrid = dim3(numBlocks);
 
     timer.start();
-    evaluateTileRangesKernel<<<dimBlock, dimGrid>>>();
+    evaluateTileRangesKernel<<<dimGrid, dimBlock>>>();
     timer.stop();
 
     if (cudaGetLastError() != cudaSuccess)
@@ -827,11 +827,11 @@ void rasterizeTile(CudaTimer& timer)
 {
     // We dispatch one block per tile, one thread per pixel within the tile.
     constexpr int32_t threadPerBlock = k_TileSize * k_TileSize;
-    const auto dimGrid = dim3(threadPerBlock);
-    const auto dimBlock = dim3(k_TotalTiles);
+    const auto dimBlock = dim3(threadPerBlock);
+    const auto dimGrid = dim3(k_TotalTiles);
 
     timer.start();
-    rasterizeTilesKernel<<<dimBlock, dimGrid>>>();
+    rasterizeTilesKernel<<<dimGrid, dimBlock>>>();
     timer.stop();
 
     if (cudaGetLastError() != cudaSuccess)
