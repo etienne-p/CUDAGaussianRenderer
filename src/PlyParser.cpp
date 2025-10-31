@@ -17,7 +17,7 @@ struct PlyVertex
     glm::vec3 sphericalHarmonics;
     float opacity;
     glm::vec3 scale;
-    glm::quat rotation;
+    glm::vec4 rotation;
 };
 
 int ParsePly(const char* filePath, std::vector<PlyVertex>& vertices, glm::vec3& boundsMin, glm::vec3& boundsMax)
@@ -94,7 +94,8 @@ int ParsePly(const char* filePath,
         scale3x3[1][1] = v.scale[1];
         scale3x3[2][2] = v.scale[2];
 
-        auto RS = glm::mat3_cast(v.rotation) * scale3x3;
+        auto rot = glm::quat::wxyz(v.rotation.x, v.rotation.y, v.rotation.z, v.rotation.w);
+        auto RS = glm::mat3_cast(rot) * scale3x3;
         auto cov = RS * glm::transpose(RS);
 
         // Covariance is symmetric.
@@ -106,7 +107,8 @@ int ParsePly(const char* filePath,
         position[i] = float4{v.position.x, v.position.y, v.position.z, 0};
 
         // Convert spherical harmonics to RGB values.
-        auto rgb = v.sphericalHarmonics * 0.2f + 0.5f;
+        const float SH_C0 = 0.28209479177387814;
+        auto rgb = v.sphericalHarmonics * SH_C0 + 0.5f;
         color[i] = float4{rgb.x, rgb.y, rgb.z, v.opacity};
     }
 

@@ -38,7 +38,7 @@ const char* fragmentShaderTextured = STRINGIFY(
     uniform sampler2D textureSampler; \n
     void main() \n 
     { \n 
-        color = texture(textureSampler, uv).grba; \n
+        color = texture(textureSampler, uv).rgba; \n
     } \n
 );
 // clang-format on
@@ -217,8 +217,8 @@ struct OrbitCamera
 
         // Orthographic mapping of the Z axis.
         // We use the default right handed coordinates, so we flip Z via scaleZ.
-        auto scaleZ = -1.0f / (m_Far - m_Near);
-        auto translationZ = -m_Near / (m_Far - m_Near);
+        auto scaleZ = -2.0f / (m_Far - m_Near);
+        auto translationZ = -(m_Near + m_Far) / (m_Far - m_Near);
         cameraData.depthScaleBias = glm::vec2(scaleZ, translationZ);
 
         return cameraData;

@@ -11,7 +11,7 @@ The high level implementation is similar to the one developed by INRIA for its p
 
 Similarly to INRIA's implementation, this is a volumetric renderer. As opposed to many viewers who fundamentally are alpha blended particle systems (each splat is a transparent quad).
 
-![Lilly Boquet Animated](images/LillyBoquet_Animated.gif)
+![Lilly Boquet Animated](images/lilly_boquet_animated.gif)
 *An animated capture of our system's output.*
 
 ## Overview
@@ -101,7 +101,7 @@ As an alternative to Gaussian kernel, who have infinite support, we tried using 
 
 | Kernel | Gaussian | Epanechnikov |
 | -------- | -------- | -------- |
-| Screenshot | ![](images/Lilly_Gaussian_Screenshot.png) | ![](images/Lilly_Epanechnikov_Screenshot.png) | 
+| Screenshot | ![](images/lilly_boquet_gaussian_512x512.png) | ![](images/lilly_boquet_epanechnikov_512x512.png) | 
 | Render Time | 10.302821ms | 8.836210ms |
 
 Generally, the costliest kernels are the ones building the tile list, sorting it, and final rasterization. This last kernel does suffer from non coalesced memory reads, since the splats overlapping a given tile are not contiguous in global memory. INRIA's implementation tries to improve cache usage by sorting the loaded splats according to Morton order. We tried something similar but the improvement seemed too minimal to be kept in the code. It may be worth trying Hilbert ordering.  
@@ -110,13 +110,27 @@ Generally, the costliest kernels are the ones building the tile list, sorting it
 
 All development, testing and profiling was done on a Dell laptop, featuring an NVIDIA GeForce RTX 3050 GPU, and an Intel i7 (12th gen) processor. We profile each kernel then calculate the total CUDA execution time per frame. Note that performance is affected by the number of splats per scene, but also by the point of view of the camera: the closest a splat is to the camera, the more tiles it overlaps. The furthest we are, the more a tile may overlap with a large number of splats. The latter could be addressed by using a hierarchical data structure, which is beyond the scope of this project. Note that we focus on CUDA kernels since the splats are uploaded to the GPU on startup and the display of the rendered texture on screen using OpenGL is a trivial operation.
 
-| | Lilly Boquet | Obrazow Castle | Christmas Tree |
+| | Lilly Boquet | Van Gogh Room | Christmas Tree |
 | -------- | -------- | -------- | -------- | 
-| Number Of Splats | 815957 | 612493 | 149621 | 
-| Thumbnail | ![](images/LillyBoquet_256x256.png) | ![](images/ObrazowCastle_256x256.png) | ![](images/ChristmasTree_256x256.png) |
-| Evaluate Clip Data | 0.475747ms | 0.368909ms | 0.144870ms |
-| Build Tile List | 1.100223ms | 0.735646ms | 0.513808ms |
-| Sort Tile List | 6.020900ms | 1.115157ms | 0.871186ms |
-| Evaluate Tile Ranges | 0.149122ms | 0.070264ms | 0.054080ms |
-| Render Depth Buffer | 4.756582ms | 3.184336ms | 2.397438ms |
-| Total | 12.502574ms | 5.474312ms | 3.981381ms |
+| Number Of Splats | 815957 | 341294 | 149621 | 
+| Thumbnail | ![](images/lilly_boquet_256x256.png) | ![](images/van_gogh_room_256x256.png) | ![](images/christmas_tree_256x256.png) |
+| Evaluate Clip Data | 0.475747ms | 0.209424ms | 0.144870ms |
+| Build Tile List | 1.100223ms | 0.651864ms | 0.513808ms |
+| Sort Tile List | 6.020900ms | 1.300160ms | 0.871186ms |
+| Evaluate Tile Ranges | 0.149122ms | 0.074850ms | 0.054080ms |
+| Render Depth Buffer | 4.756582ms | 2.559919ms | 2.397438ms |
+| Total | 12.502574ms | 4.796218ms | 3.981381ms |
+
+## Attributions For The Test Data
+
+*Van Gogh Room*
+
+_https://poly.cam/tools/gaussian-splatting?capture=7d649e50-a6f9-4a18-87c5-d69930b44afd
+https://poly.cam/@headsketch
+https://www.headsketch.xyz/polycam_
+
+*Lilly Boquet*
+
+_Not for commercial use!
+Provided courtesy of David Lisser: https://davidlisser.co.uk/.
+Spherical harmonics (f_rest\_*) attributes not included due to GitHub file size limits._
