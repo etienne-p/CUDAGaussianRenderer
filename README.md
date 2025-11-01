@@ -134,3 +134,5 @@ https://www.headsketch.xyz/polycam_
 _Not for commercial use!
 Provided courtesy of David Lisser: https://davidlisser.co.uk/.
 Spherical harmonics (f_rest\_*) attributes not included due to GitHub file size limits._
+
+As of now we use a naive `.ply` parser that expects one level of spherical harmonics. So we use a `convert.py` script to trim extra spherical harmonics from files who include them.
