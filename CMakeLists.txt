@@ -49,6 +49,8 @@ add_executable(GaussianRender
 	src/CudaErrorCheck.cpp
 	src/PlyParser.h
 	src/PlyParser.cpp
+	src/CameraControls.h
+	src/CameraControls.cpp
 )
 
 set_target_properties(GaussianRender PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

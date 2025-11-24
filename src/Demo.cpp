@@ -14,6 +14,7 @@ GLFWwindow* window;
 #include "DeviceBuffer.cu"
 #include "GaussianRender.cuh"
 #include "PlyParser.h"
+#include "CameraControls.h"
 
 #define STRINGIFY(A) #A
 
@@ -147,84 +148,6 @@ constexpr uint32_t k_QuadIndices[] = {0, 1, 2, 2, 3, 0};
 const glm::vec3 k_QuadVertices[] = {{-1, -1, 0}, {1, -1, 0}, {1, 1, 0}, {-1, 1, 0}};
 const glm::vec2 k_QuadUvs[] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
-struct OrbitCamera
-{
-  private:
-    glm::vec3 m_Target{0};
-    float m_Phi{90.f};
-    float m_Theta{0.0f};
-    float m_Radius{8.0f};
-    float m_Aspect{1.0f};
-    float m_Near{0.0f};
-    float m_Far{100.0f};
-    float m_FieldOfView{glm::radians(60.0f)};
-
-  public:
-    void setTarget(glm::vec3 value)
-    {
-        m_Target = value;
-    }
-    void setRadius(float value)
-    {
-        m_Radius = value;
-    }
-    void SetNearAndFarPlanes(float near, float far)
-    {
-        m_Near = near;
-        m_Far = far;
-    }
-    void Update()
-    {
-        const float delta = 2.f;
-        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        {
-            m_Theta += delta;
-        }
-        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-        {
-            m_Theta -= delta;
-        }
-        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        {
-            m_Phi += delta;
-        }
-        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        {
-            m_Phi -= delta;
-        }
-
-        m_Phi = glm::clamp(m_Phi, 1.f, 179.f);
-    }
-
-    CameraData GetCameraData() const
-    {
-        glm::vec3 cameraTranslation;
-        cameraTranslation.x = m_Radius * glm::sin(glm::radians(m_Phi)) * glm::cos(glm::radians(m_Theta));
-        cameraTranslation.y = m_Radius * glm::cos(glm::radians(m_Phi));
-        cameraTranslation.z = m_Radius * glm::sin(glm::radians(m_Phi)) * glm::sin(glm::radians(m_Theta));
-
-        auto view = glm::lookAt(m_Target + cameraTranslation, m_Target, glm::vec3(0, 1, 0));
-
-        CameraData cameraData;
-        cameraData.aspect = m_Aspect;
-        cameraData.projection = glm::perspective(m_FieldOfView, m_Aspect, m_Near, m_Far);
-        cameraData.viewProjection = cameraData.projection * view;
-        cameraData.view = view;
-
-        auto cotangentY = 1.0f / glm::tan(m_FieldOfView * 0.5f);
-        auto cotangentX = cotangentY / m_Aspect;
-        cameraData.fovCotangent = glm::vec2(cotangentX, cotangentY);
-
-        // Orthographic mapping of the Z axis.
-        // We use the default right handed coordinates, so we flip Z via scaleZ.
-        auto scaleZ = -2.0f / (m_Far - m_Near);
-        auto translationZ = -(m_Near + m_Far) / (m_Far - m_Near);
-        cameraData.depthScaleBias = glm::vec2(scaleZ, translationZ);
-
-        return cameraData;
-    }
-};
-
 struct Stats
 {
     double evaluateClipData{0};
@@ -288,13 +211,13 @@ int main(int argc, char* argv[])
 
     cudaGetDeviceProperties(&prop, dev);
 
-    auto orbitControls = OrbitCamera();
+    auto cameraControls = CameraControls(window, glm::vec2(k_ScreenSize));
 
 #if false
     // Use randomly generated splats.
     constexpr int32_t splatCount = 1 << 4;
     constexpr auto worldBoundsExtent = 4.0f;
-    orbitControls.setRadius(worldBoundsExtent * 2.0f);
+    cameraControls.setBounds(glm::vec3(-worldBoundsExtent), glm::vec3(worldBoundsExtent))
 
     const auto minPosition = glm::vec4(-worldBoundsExtent, -worldBoundsExtent, -worldBoundsExtent, 1.0f);
     const auto maxPosition = glm::vec4(worldBoundsExtent, worldBoundsExtent, worldBoundsExtent, 1.0f);
@@ -326,10 +249,8 @@ int main(int argc, char* argv[])
     auto splatCount = ParsePly(argv[1], positionWorldSpace, covarianceWorldSpace, color, boundsMin, boundsMax);
 
     // Orbit around dataset, based on the dataset bounding box.
-    auto span = glm::length(boundsMax - boundsMin);
-    orbitControls.setTarget(boundsMin + (boundsMax - boundsMin) * 0.5f);
-    orbitControls.setRadius(span * 0.75f);
-    orbitControls.SetNearAndFarPlanes(0.0f, span);
+    cameraControls.setBounds(boundsMin, boundsMax);
+
 #endif
 
     // Create and compile the GLSL program. Used to draw the texture CUDA renders to.
@@ -375,15 +296,36 @@ int main(int argc, char* argv[])
 
     // We use a timer to cap frame rate.
     auto lastTime = glfwGetTime();
+    auto deltaTime = 0.0f;
 
     // Update loop.
     do
     {
         ++frameCount;
 
-        // Process input.
-        orbitControls.Update();
-        auto cameraData = orbitControls.GetCameraData();
+        // Update time.
+        auto time = glfwGetTime();
+        deltaTime = time - lastTime;
+        lastTime = time;
+
+        // Update input & camera controls.
+        cameraControls.update((float) deltaTime);
+
+        // Build camera data.
+        CameraData cameraData;
+        cameraData.aspect = cameraControls.getAspect();
+        cameraData.projection = cameraControls.getProjection();
+        cameraData.viewProjection = cameraControls.getViewProjection();
+        cameraData.view = cameraControls.getView();
+        auto cotangentY = 1.0f / glm::tan(cameraControls.getFieldOfView() * 0.5f);
+        auto cotangentX = cotangentY / cameraControls.getAspect();
+        cameraData.fovCotangent = glm::vec2(cotangentX, cotangentY);
+        // Orthographic mapping of the Z axis.
+        // We use the default right handed coordinates, so we flip Z via scaleZ.
+        auto scaleZ = -1.0f / (cameraControls.getFar() - cameraControls.getNear());
+        auto translationZ = -(cameraControls.getNear())
+                          / (cameraControls.getFar() - cameraControls.getNear());
+        cameraData.depthScaleBias = glm::vec2(scaleZ, translationZ);
 
         // CUDA Update.
         {
@@ -500,7 +442,6 @@ int main(int argc, char* argv[])
         {
             // Nothing, wait.
         }
-        lastTime = glfwGetTime();
 
     } // Check if the ESC key was pressed or the window was closed
     while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
