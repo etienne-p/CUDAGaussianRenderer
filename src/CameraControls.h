@@ -41,9 +41,6 @@ class CameraControls
     glm::quat m_Rotation;
     glm::vec3 m_Position;
 
-    // TMP
-    glm::vec3 m_Center;
-
     glm::vec3 getMovement() const;
     MouseButton getMouseButton() const;
     void getWorldSpaceRay(const glm::vec2& pointerPosition, glm::vec3& rayOrigin, glm::vec3& rayDirection) const;

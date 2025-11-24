@@ -93,13 +93,11 @@ glm::vec3 CameraControls::getMovement() const
 
 glm::mat4 CameraControls::getView() const
 {
-    // WTF even then....
-    //return glm::lookAt(m_Position, m_Center, k_Up);
     // Or transpose rotation, subtract translation.
     auto rotation = glm::mat4_cast(m_Rotation);
     auto translation = glm::translate(glm::mat4(1.0f), m_Position);
     auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, -1));
-    return glm::inverse(translation * rotation) * scale;
+    return glm::inverse(translation * rotation);// *scale;
 }
 
 glm::mat4 CameraControls::getProjection() const
@@ -156,9 +154,7 @@ void CameraControls::setBounds(const glm::vec3& min, const glm::vec3& max)
     auto offset = glm::vec3(0.0f, maxSize * 0.5f, maxSize * 0.5f);
     m_Position = center + offset;
     m_Rotation = glm::angleAxis(0.0f, k_Right);
-
-    // TMP
-    m_Center = center;
+    m_AnchorPosition = center;
 }
 
 void CameraControls::update(float dt)
@@ -222,7 +218,7 @@ void CameraControls::update(float dt)
                 if (m_StartPanPositionIsValid)
                 {
                     auto delta = hit - m_StartPanPosition;
-                    m_Position += delta;
+                    m_Position -= delta;
                 }
                 else if (pointerIsInside)
                 {
