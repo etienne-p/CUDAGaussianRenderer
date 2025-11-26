@@ -12,6 +12,7 @@ class CameraControls
     {
         None,
         Pan,
+        Orbit,
         Drag
     };
 
@@ -38,6 +39,7 @@ class CameraControls
 
     float m_Speed;
     glm::vec3 m_AnchorPosition;
+    glm::vec4 m_FloorPlane;
     glm::quat m_Rotation;
     glm::vec3 m_Position;
 

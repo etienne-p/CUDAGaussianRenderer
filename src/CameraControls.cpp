@@ -40,26 +40,6 @@ glm::quat removeRoll(glm::quat rotation)
     return glm::quat(glm::mat3(right, up, forward));
 }
 
-glm::quat preventUpsideDown(glm::quat rotation)
-{
-    auto rot = glm::mat3(rotation);
-    auto right = rot[0];
-    auto up = rot[1];
-    auto forward = rot[2];
-
-    auto gimbalCrossed = glm::dot(right, glm::cross(glm::vec3(0, 1, 0), forward)) < 0;
-
-    if (gimbalCrossed)
-    {
-        forward = glm::dot(glm::vec3(0, 1, 0), forward) > 0 ? k_Up : -k_Up;
-        up = glm::normalize(projectOnPlane(up, k_Up));
-        right = glm::cross(up, forward);
-        return glm::quat(glm::mat3(right, up, forward));
-    }
-
-    return rotation;
-}
-
 glm::vec3 CameraControls::getMovement() const
 {
     auto result = glm::vec3(0.0f);
@@ -97,7 +77,7 @@ glm::mat4 CameraControls::getView() const
     auto rotation = glm::mat4_cast(m_Rotation);
     auto translation = glm::translate(glm::mat4(1.0f), m_Position);
     auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, -1));
-    return glm::inverse(translation * rotation);// *scale;
+    return glm::inverse(translation * rotation); // *scale;
 }
 
 glm::mat4 CameraControls::getProjection() const
@@ -154,6 +134,7 @@ void CameraControls::setBounds(const glm::vec3& min, const glm::vec3& max)
     auto offset = glm::vec3(0.0f, maxSize * 0.5f, maxSize * 0.5f);
     m_Position = center + offset;
     m_Rotation = glm::angleAxis(0.0f, k_Right);
+    m_FloorPlane = getPlane(k_Up, center);
     m_AnchorPosition = center;
 }
 
@@ -172,6 +153,7 @@ void CameraControls::update(float dt)
                 m_Mode = Mode::Drag;
                 break;
             case MouseButton::Middle:
+                m_Mode = Mode::Orbit;
                 break;
             case MouseButton::Right:
                 m_Mode = Mode::Pan;
@@ -200,15 +182,41 @@ void CameraControls::update(float dt)
     // TODO: Add orbit more once we support raycasting.
     switch (m_Mode)
     {
-        case Mode::Drag:
+        case Mode::None: {
+            auto t = 0.0f;
+            if (rayIntersectsPlane(rayOrigin, rayDirection, m_FloorPlane, t))
+            {
+                m_AnchorPosition = rayOrigin + rayDirection * t;
+            }
+        }
+
+        break;
+
+        case Mode::Drag: {
             auto yawAndPitch = glm::vec2(m_FieldOfView * getAspect(), m_FieldOfView) * pointerDelta / m_ScreenSize;
             auto yaw = glm::angleAxis(yawAndPitch.x, k_Up);
             auto pitch = glm::angleAxis(yawAndPitch.y, k_Right);
-            // m_Rotation = removeRoll(preventUpsideDown(m_Rotation * yaw * pitch));
-            m_Rotation = m_Rotation * yaw * pitch;
-            break;
+            m_Rotation = removeRoll(m_Rotation * yaw * pitch);
+        }
 
-        case Mode::Pan:
+        break;
+
+        case Mode::Orbit: {
+            // Pitch and yaw directly derived from pointer movement.
+            auto yawAndPitch = glm::vec2(m_FieldOfView * getAspect(), m_FieldOfView) * pointerDelta / m_ScreenSize;
+            auto right = m_Rotation * k_Right;
+            auto pitchRot = glm::angleAxis(-yawAndPitch.y, right);
+            auto yawRot = glm::angleAxis(-yawAndPitch.x, k_Up);
+            auto deltaRotation = yawRot * pitchRot;
+            auto rotation = removeRoll(deltaRotation * m_Rotation);
+            // Move with respect to the anchor.
+            auto anchorToCamera = deltaRotation * (m_Position - m_AnchorPosition);
+            m_Rotation = rotation;
+            m_Position = m_AnchorPosition + anchorToCamera;
+        }
+        break;
+
+        case Mode::Pan: {
             auto plane = getPlane(m_Rotation * k_Back, m_AnchorPosition);
             auto t = 0.0f;
 
@@ -226,8 +234,9 @@ void CameraControls::update(float dt)
                     m_StartPanPositionIsValid = true;
                 }
             }
+        }
 
-            break;
+        break;
     }
 
     // Apply movement (W, A, S, D, ...).
