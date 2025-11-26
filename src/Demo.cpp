@@ -322,9 +322,9 @@ int main(int argc, char* argv[])
         cameraData.fovCotangent = glm::vec2(cotangentX, cotangentY);
         // Orthographic mapping of the Z axis.
         // We use the default right handed coordinates, so we flip Z via scaleZ.
+        // Clip depth is in [0, 1], this range matters when evaluating sorting keys.
         auto scaleZ = -1.0f / (cameraControls.getFar() - cameraControls.getNear());
-        auto translationZ = -(cameraControls.getNear())
-                          / (cameraControls.getFar() - cameraControls.getNear());
+        auto translationZ = -(cameraControls.getNear()) / (cameraControls.getFar() - cameraControls.getNear());
         cameraData.depthScaleBias = glm::vec2(scaleZ, translationZ);
 
         // CUDA Update.
@@ -388,8 +388,12 @@ int main(int argc, char* argv[])
 
             setTileListArgs(&tileListArgs);
 
-            evaluateTileRange(cudaTimer, tileListArgs.size);
-            stats.evaluateTileRanges += (double) cudaTimer.getElapseTimedMs();
+            // Bypass if no splat is visible.
+            if (tileListArgs.size != 0)
+            {
+                evaluateTileRange(cudaTimer, tileListArgs.size);
+                stats.evaluateTileRanges += (double) cudaTimer.getElapseTimedMs();
+            }
 
             rasterizeTile(cudaTimer);
             stats.renderDepthBuffer += (double) cudaTimer.getElapseTimedMs();
