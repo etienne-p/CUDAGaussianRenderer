@@ -119,17 +119,24 @@ __global__ void evaluateSplatClipDataKernel()
         auto clipCovariance = viewProjection * glm::transpose(splatCovariance) * glm::transpose(viewProjection);
         auto clipPosition = (glm::vec3)(affineProjection * glm::vec4(viewPosition, 1));
 
+        // Tiny bump proportional to the area of a texel in clip space.
+        // Note: ellipse area is Pi * sqrt(det(cov)).
+        constexpr float k_TexelSizeClip = 2.0f / (float) k_ScreenSize;
+        constexpr float k_TraceBump = 0.05f * k_TexelSizeClip * k_TexelSizeClip;
+        clipCovariance[0][0] += k_TraceBump;
+        clipCovariance[1][1] += k_TraceBump;
         // Evaluate the eigen decomposition of the 2D covariance matrix to obtain
         // an oriented bounding rectangle for the splat.
-        // TODO: Drop the splat if determinant is ~zero?
         auto det = clipCovariance[0][0] * clipCovariance[1][1] - clipCovariance[1][0] * clipCovariance[1][0];
         // Trace over two.
         auto mid = 0.5f * (clipCovariance[0][0] + clipCovariance[1][1]);
         // Compute eigen values, see
         // https://people.math.harvard.edu/~knill/teaching/math21b2004/exhibits/2dmatrices/index.html.
         constexpr float epsilon = 1e-12f;
-        auto lambda0 = mid + glm::sqrt(glm::max(epsilon, mid * mid - det));
-        auto lambda1 = mid - glm::sqrt(glm::max(epsilon, mid * mid - det));
+        auto radius = glm::sqrt(glm::max(epsilon, mid * mid - det));
+        auto lambda0 = mid + radius;
+        // Max at zero to prevent computation errors (NaN), leads to a zero sized rect, tested to discard. the splat.
+        auto lambda1 = glm::max(0.0f, mid - radius);
 
         auto eigenVector0 = glm::normalize(glm::vec2(clipCovariance[1][0], lambda0 - clipCovariance[0][0]));
         // Note that we use camera aspect to straighten the rectangle, aka obtain perpendicular vectors.
@@ -150,14 +157,19 @@ __global__ void evaluateSplatClipDataKernel()
         // Only need 3 values since the matrix is symmetric.
         auto conic = glm::vec3(clipCovariance[1][1], -clipCovariance[1][0], clipCovariance[0][0]) * invDet;
 
-        // Discard splats that are out of frustum.
         // TODO: Ideally we'd do less work on out of frustum splats.
+        // Out of frustum could be discarded as soon as we know its position.
+        // No point in evaluating extent, conic, once we know the second eigenvalue is <= 0.
+        // But we also want to retain coalesced memory acesses and avoid divergence.
+
+        // Discard splats that are out of frustum.
         // Right now they'll be pulled when building the list, then they'll be found to cover zero tiles.
         auto edge = glm::step(glm::vec3(-1.0f), clipPosition) * glm::step(clipPosition, glm::vec3(1.0f));
-        auto inFrustum = edge.x * edge.y * edge.z;
+        // Is visible: is it in frustum and the area is strictly positive?
+        auto isVisible = edge.x * edge.y * edge.z * glm::step(0.0f, lambda1);
         // The constant is arbitrary.
-        clipPosition = glm::mix(glm::vec3(-128.0f), clipPosition, inFrustum);
-        extent *= inFrustum;
+        clipPosition = glm::mix(glm::vec3(-128.0f), clipPosition, isVisible);
+        extent *= isVisible;
 
         // Global writes.
         g_GlobalArgs.positionClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
