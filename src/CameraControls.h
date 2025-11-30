@@ -7,7 +7,6 @@
 class CameraControls
 {
   private:
-    // TODO: Add Orbit mode once we have a raycaster.
     enum class Mode
     {
         None,

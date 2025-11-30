@@ -150,6 +150,15 @@ __global__ void evaluateSplatClipDataKernel()
         // Only need 3 values since the matrix is symmetric.
         auto conic = glm::vec3(clipCovariance[1][1], -clipCovariance[1][0], clipCovariance[0][0]) * invDet;
 
+        // Discard splats that are out of frustum.
+        // TODO: Ideally we'd do less work on out of frustum splats.
+        // Right now they'll be pulled when building the list, then they'll be found to cover zero tiles.
+        auto edge = glm::step(glm::vec3(-1.0f), clipPosition) * glm::step(clipPosition, glm::vec3(1.0f));
+        auto inFrustum = edge.x * edge.y * edge.z;
+        // The constant is arbitrary.
+        clipPosition = glm::mix(glm::vec3(-128.0f), clipPosition, inFrustum);
+        extent *= inFrustum;
+
         // Global writes.
         g_GlobalArgs.positionClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
         g_GlobalArgs.positionClipSpaceZ[index] = clipPosition.z;
@@ -271,14 +280,15 @@ constexpr int32_t k_WarpHalfSize = k_WarpSize / 2;
 constexpr int32_t k_BuildTileListsThreadsPerGroup = k_WarpSize * 8;
 constexpr uint32_t k_MaxUint32 = std::numeric_limits<uint32_t>::max();
 
+// Clip depth in range [-1, 1]. (OpenGL convention.)
 // Combine tile index and clip depth to form a sorting key.
 __device__ __forceinline__ uint64_t getKey(int32_t tileIndex, float clipDepth)
 {
     // Recall that we have hardcoded the final buffer size, 1024x1024.
     // 1024 / 16 = 64 -> 4096 tiles total, 12bits.
-    // Our projection linearly maps [near, far] to [0, 1].
+    // Our projection linearly maps [near, far] to [-1, 1].
     // We use the full 32 bits for maximum precision.
-    auto quantizedDepth = (uint32_t) (glm::clamp(clipDepth) * k_MaxUint32);
+    auto quantizedDepth = (uint32_t) (glm::clamp((clipDepth + 1.0f) * 0.5f) * k_MaxUint32);
     return ((uint64_t) tileIndex << 32) | quantizedDepth;
 }
 
@@ -343,111 +353,117 @@ __global__ void buildTileListKernel()
         // Makes sure any lingering data in the expanded scan is ignored.
         auto tileCount = 0;
 
-        // Read splats data, coalesced.
-        if (threadIdx.x < s_SplatCount)
-        {
-            // Read current splat data. The one this thread is responsible for.
-            auto srcIndex = s_SplatStartIndex + threadIdx.x;
-            auto positionClipSpaceXYData = loadReadOnly(&g_GlobalArgs.positionClipSpaceXY[srcIndex]);
-            auto ellipseData = loadReadOnly(&g_GlobalArgs.screenEllipse[srcIndex]);
-
-            auto ellipse = Ellipse();
-            ellipse.center = glm::vec2(positionClipSpaceXYData.x, positionClipSpaceXYData.y);
-            ellipse.cosSin = glm::vec2(ellipseData.x, ellipseData.y);
-            ellipse.extent = glm::vec2(ellipseData.z, ellipseData.w);
-
-            auto rect = getAABBRect(ellipse);
-
-            // From clip to tiles.
-            auto tilesRectFloat = (glm::vec4(rect.min, rect.max) + 1.0f) * 0.5f * (float) k_TilesPerScreen;
-
-            // Clip within screen bounds.
-            auto tilesRect = glm::ivec4(
-                glm::max(0, (int) glm::floor(tilesRectFloat.x)),
-                glm::max(0, (int) glm::floor(tilesRectFloat.y)),
-                glm::min(k_TilesPerScreen, (int) glm::ceil(tilesRectFloat.z)),
-                glm::min(k_TilesPerScreen, (int) glm::ceil(tilesRectFloat.w)));
-
-            // Min-Max to Center-Size representation.
-            tilesRect.zw -= tilesRect.xy;
-
-            // We must account for negative surface of the rectangle.
-            // Note: We could prevent this earlier. But it would require a discard mechnism earlier in the pipeline.
-            tileCount = glm::max(0, tilesRect.z * tilesRect.w);
-
-            // Store shared data.
-            s_Depths[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionClipSpaceZ[srcIndex]);
-            s_TilesRects[threadIdx.x] = int4{tilesRect.x, tilesRect.y, tilesRect.z, tilesRect.w};
-            s_ScreenEllipse[threadIdx.x] = ellipseData;
-            s_PositionClipSpaceXY[threadIdx.x] = positionClipSpaceXYData;
-        }
-
-        // __syncwarp() is sufficient since only the first warp is working right now.
-        __syncwarp();
-
-        // Evaluate exclusive scan.
-        // It is done outside of the previous condition, since we may have less splats than threads in the warp.
+        // The first warp pulls a chunk of splats and updates the tile list.
         if (threadIdx.x < k_WarpSize)
         {
-            // Only the first warp passes here, so threadIdx.x is the lane.
-            auto inclusiveScan = tileCount;
+            // Read splats data, coalesced.
+            // Only threads from the first warp may enter here.
+            if (threadIdx.x < s_SplatCount)
+            {
+                // Read current splat data. The one this thread is responsible for.
+                auto srcIndex = s_SplatStartIndex + threadIdx.x;
+                auto positionClipSpaceXYData = loadReadOnly(&g_GlobalArgs.positionClipSpaceXY[srcIndex]);
+                auto ellipseData = loadReadOnly(&g_GlobalArgs.screenEllipse[srcIndex]);
+
+                auto ellipse = Ellipse();
+                ellipse.center = glm::vec2(positionClipSpaceXYData.x, positionClipSpaceXYData.y);
+                ellipse.cosSin = glm::vec2(ellipseData.x, ellipseData.y);
+                ellipse.extent = glm::vec2(ellipseData.z, ellipseData.w);
+
+                auto rect = getAABBRect(ellipse);
+
+                // From clip to tiles.
+                auto tilesRectFloat = (glm::vec4(rect.min, rect.max) + 1.0f) * 0.5f * (float) k_TilesPerScreen;
+
+                // Clip within screen bounds.
+                auto tilesRect = glm::ivec4(
+                    glm::clamp((int32_t) glm::floor(tilesRectFloat.x), 0, k_TilesPerScreen),
+                    glm::clamp((int32_t) glm::floor(tilesRectFloat.y), 0, k_TilesPerScreen),
+                    glm::clamp((int32_t) glm::ceil(tilesRectFloat.z), 0, k_TilesPerScreen),
+                    glm::clamp((int32_t) glm::ceil(tilesRectFloat.w), 0, k_TilesPerScreen));
+
+                // Min-Max to Center-Size representation.
+                tilesRect.zw -= tilesRect.xy;
+
+                // We must account for negative surface of the rectangle.
+                // Note: We could prevent this earlier. But it would require a discard mechnism earlier in the pipeline.
+                tileCount = glm::max(0, tilesRect.z * tilesRect.w);
+
+                // Store shared data.
+                s_Depths[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionClipSpaceZ[srcIndex]);
+                s_TilesRects[threadIdx.x] = int4{tilesRect.x, tilesRect.y, tilesRect.z, tilesRect.w};
+                s_ScreenEllipse[threadIdx.x] = ellipseData;
+                s_PositionClipSpaceXY[threadIdx.x] = positionClipSpaceXYData;
+            }
+
+            // What if no thread has tiles to process? (All splats out of frustum.)
+            auto hasTiles = __ballot_sync(k_WarpMask, tileCount != 0) != 0;
+
+            if (hasTiles)
+            {
+                // Only the first warp passes here, so threadIdx.x is the lane.
+                auto inclusiveScan = tileCount;
 #pragma unroll
-            for (auto delta = 1u; delta <= k_WarpHalfSize; delta <<= 1u)
-            {
-                auto n = __shfl_up_sync(k_WarpMask, inclusiveScan, delta);
-
-                // Only process the threads that do have some work.
-                // We never clear the shared array, don't touch what lingers from previous runs.
-                // Note: first warp -> threadIdx == laneId.
-                if (threadIdx.x >= delta)
+                for (auto delta = 1u; delta <= k_WarpHalfSize; delta <<= 1u)
                 {
-                    inclusiveScan += n;
+                    auto n = __shfl_up_sync(k_WarpMask, inclusiveScan, delta);
+
+                    // Only process the threads that do have some work.
+                    // We never clear the shared array, don't touch what lingers from previous runs.
+                    // Note: first warp -> threadIdx == laneId.
+                    if (threadIdx.x >= delta)
+                    {
+                        inclusiveScan += n;
+                    }
                 }
-            }
 
-            s_TileExclusiveScan[threadIdx.x] = inclusiveScan - tileCount;
+                s_TileExclusiveScan[threadIdx.x] = inclusiveScan - tileCount;
 
-            if (threadIdx.x == k_WarpSize - 1)
-            {
-                s_TotalTilesCount = inclusiveScan;
-            }
-
-            // Each thread writes its tiles in shared memory, to be processed later by the whole group.
-            // Exclusive scan allows each thread to evaluate its writing indices in shared memory.
-            auto startWriteIndex = glm::min(inclusiveScan - tileCount, k_BuildTileListsThreadsPerGroup);
-            auto endWriteIndex = glm::min(inclusiveScan, k_BuildTileListsThreadsPerGroup);
-            auto writeIndex = startWriteIndex;
-
-            // Write tiles in shared memory.
-            while (__ballot_sync(k_WarpMask, writeIndex < endWriteIndex) != 0)
-            {
-                if (writeIndex < endWriteIndex)
+                if (threadIdx.x == k_WarpSize - 1)
                 {
-                    s_ExpandedTiles[writeIndex] = threadIdx.x;
-                    ++writeIndex;
+                    s_TotalTilesCount = inclusiveScan;
                 }
-            }
 
-            __syncwarp();
+                // Each thread writes its tiles in shared memory, to be processed later by the whole group.
+                // Exclusive scan allows each thread to evaluate its writing indices in shared memory.
+                auto startWriteIndex = glm::min(inclusiveScan - tileCount, k_BuildTileListsThreadsPerGroup);
+                auto endWriteIndex = glm::min(inclusiveScan, k_BuildTileListsThreadsPerGroup);
+                auto writeIndex = startWriteIndex;
 
-            // The last thread writing to shared memory is responsible for the tracking of shared counters.
-            if (endWriteIndex - startWriteIndex > 0)
-            {
-                // If everything fits there's no remaining work.
-                // All tiles fit in one pass.
-                if (endWriteIndex == s_TotalTilesCount)
+                // Write tiles in shared memory.
+                while (__ballot_sync(k_WarpMask, writeIndex < endWriteIndex) != 0)
                 {
-                    s_HasPendingTiles = false;
-                    s_ExpandedTileCount = endWriteIndex;
-                    s_CumulatedExpandedTileCount = s_ExpandedTileCount;
+                    if (writeIndex < endWriteIndex)
+                    {
+                        s_ExpandedTiles[writeIndex] = threadIdx.x;
+                        ++writeIndex;
+                    }
                 }
-                // There is remaining work.
-                // We will need multiple passes.
-                else if (endWriteIndex == k_BuildTileListsThreadsPerGroup)
+
+                __syncwarp();
+
+                // TODO: What if there are no tiles for any thread?
+                // TODO: Conditional breakpoint -> NO tile during pass. -> s_TotalTilesCount == 0
+                // The last thread writing to shared memory is responsible for the tracking of shared counters.
+                if (endWriteIndex - startWriteIndex > 0)
                 {
-                    s_HasPendingTiles = true;
-                    s_ExpandedTileCount = endWriteIndex;
-                    s_CumulatedExpandedTileCount = s_ExpandedTileCount;
+                    // TODO: If zero tile, cause we never enter here, bookkeeping is out of sync.
+                    // If everything fits there's no remaining work.
+                    // All tiles fit in one pass.
+                    if (endWriteIndex == s_TotalTilesCount)
+                    {
+                        s_HasPendingTiles = false;
+                        s_ExpandedTileCount = endWriteIndex;
+                        s_CumulatedExpandedTileCount = s_ExpandedTileCount;
+                    }
+                    // There is remaining work.
+                    // We will need multiple passes.
+                    else if (endWriteIndex == k_BuildTileListsThreadsPerGroup)
+                    {
+                        s_HasPendingTiles = true;
+                        s_ExpandedTileCount = endWriteIndex;
+                        s_CumulatedExpandedTileCount = s_ExpandedTileCount;
+                    }
                 }
             }
         }
@@ -455,6 +471,13 @@ __global__ void buildTileListKernel()
         // Wait for shared memory updates to be visible to the whole group.
         __syncthreads();
 
+        if (s_ExpandedTileCount == 0)
+        {
+            // Nothing to do, move on and pull a new chunk of splats.
+            continue;
+        }
+
+        // Test and coommit tiles, the whole group works.
         for (;;)
         {
             // Overlap test between a tile and an ellipse corresponding to the outline of a splat.
@@ -557,6 +580,7 @@ __global__ void buildTileListKernel()
 
                 __syncwarp();
 
+                // TODO: If no tile who's the last thread?
                 // The last thread writing to shared memory is responsible for the tracking of shared counters.
                 if (endWriteIndex - startWriteIndex > 0)
                 {

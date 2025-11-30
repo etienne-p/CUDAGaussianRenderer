@@ -323,8 +323,9 @@ int main(int argc, char* argv[])
         // Orthographic mapping of the Z axis.
         // We use the default right handed coordinates, so we flip Z via scaleZ.
         // Clip depth is in [0, 1], this range matters when evaluating sorting keys.
-        auto scaleZ = -1.0f / (cameraControls.getFar() - cameraControls.getNear());
-        auto translationZ = -(cameraControls.getNear()) / (cameraControls.getFar() - cameraControls.getNear());
+        auto scaleZ = -2.0f / (cameraControls.getFar() - cameraControls.getNear());
+        auto translationZ = -(cameraControls.getFar() + cameraControls.getNear())
+                          / (cameraControls.getFar() - cameraControls.getNear());
         cameraData.depthScaleBias = glm::vec2(scaleZ, translationZ);
 
         // CUDA Update.
@@ -367,6 +368,7 @@ int main(int argc, char* argv[])
 
             // Multiple blocks per multiprocessor, to give the scheduler a chance to hide memory latency.
             tileListArgs.size = buildTileList(cudaTimer, prop.multiProcessorCount * 8, tileListCapacity);
+            assert(tileListArgs.size <= tileListCapacity);
             stats.buildTileList += (double) cudaTimer.getElapseTimedMs();
 
             // Update render list args with render list size.

@@ -130,10 +130,10 @@ void CameraControls::setBounds(const glm::vec3& min, const glm::vec3& max)
     auto center = min + size * 0.5f;
     auto maxSize = glm::max(size.x, glm::max(size.y, size.z));
     // Infer speed from bounds.
-    m_Speed = maxSize * 0.01f;
+    m_Speed = maxSize * 0.02f;
     auto offset = glm::vec3(0.0f, maxSize * 0.5f, maxSize * 0.5f);
     m_Position = center + offset;
-    m_Rotation = glm::angleAxis(0.0f, k_Right);
+    m_Rotation = glm::quatLookAt(glm::normalize(-offset), k_Up);
     m_FloorPlane = getPlane(k_Up, center);
     m_AnchorPosition = center;
 }
