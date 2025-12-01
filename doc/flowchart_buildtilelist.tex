@@ -26,7 +26,8 @@
 		\node (return) [startstop,right=1 of exit-if-empty] {Return};
 		\node (store-shared) [process,below=1.0 of exit-if-empty] {\textbox{Store splats in shared memory}};
 		\node (scan) [process,below=0.5 of store-shared] {\textbox{Scan tiles count per splat}};
-		\node (expand) [process,below=1.0 of scan] {\textbox{Expand tiles to distribute them among threads within the group}};
+		\node (scan-exit) [decision,aspect=2,below=0.5 of scan] {Has pending tiles};
+		\node (expand) [process,below=1.0 of scan-exit] {\textbox{Expand tiles to distribute them among threads within the group}};
 		%\node (overlap-test) [process,below=0.5 of expand] {\textbox{Each thread performs an ellipse/tile overlap test}};
 		\node (write-if-overlap) [decision,aspect=2,below=0.5 of expand] {Splat overlaps tile};
 		\node (write-shared) [process,below=1.0 of write-if-overlap] {\textbox{Store key/value pair in shared memory and increment shared count}};
@@ -38,7 +39,8 @@
 		\draw [arrow] (exit-if-empty) -- coordinate[midway](m4)(store-shared);
 		\draw [arrow] (exit-if-empty) -- coordinate[midway](m5)(return);
 		\draw [arrow] (store-shared) -- (scan);
-		\draw [arrow] (scan) -- coordinate[midway](m3)(expand);
+		\draw [arrow] (scan) -- (scan-exit);
+		\draw [arrow] (scan-exit) -- coordinate[midway](m3)(expand);
 		\draw [arrow] (expand) -- (write-if-overlap);
 		\draw [arrow] (write-if-overlap) -- coordinate[midway](m6)(write-shared);
 		\draw [arrow] (write-shared) -- (write-global);
@@ -46,6 +48,7 @@
 		
 		\draw [arrow] (write-if-overlap.west) -- coordinate[midway](m7) + (-2.0,0) |- (m2);
 		\draw [arrow] (pending-tiles-test.west) -- coordinate[midway](m8) + (-3.0,0) |- (m1);
+		\draw [arrow] (scan-exit.west) -- coordinate[midway](m8) + (-3.0,0) |- (m1);
 		\draw [arrow] (pending-tiles-test.east) -- coordinate[midway](m9) + (2.5,0) |- (m3);
 		
 		\node [black,right=0.1 of m4] {False};
@@ -54,7 +57,8 @@
 		\node [black,above=0.1 of m7] {False};
 		\node [black,above=0.1 of m8] {False};
 		\node [black,above=0.1 of m9] {True};
-		
+		\node [black,left=0.1 of m3] {True};
+				
 		\draw [gray, decorate,decoration={brace, raise=6.0em, amplitude=1.0em}] 
 		let \p1=(load-splats.north east) in (\x1,\y1)
 		let \p2=(expand.south east) in (\x2,\y2)
