@@ -157,10 +157,10 @@ __global__ void evaluateSplatClipDataKernel()
         // Only need 3 values since the matrix is symmetric.
         auto conic = glm::vec3(clipCovariance[1][1], -clipCovariance[1][0], clipCovariance[0][0]) * invDet;
 
-        // TODO: Ideally we'd do less work on out of frustum splats.
+        // TODO: Ideally we'd do less work on out-of-frustum splats.
         // Out of frustum could be discarded as soon as we know its position.
         // No point in evaluating extent, conic, once we know the second eigenvalue is <= 0.
-        // But we also want to retain coalesced memory acesses and avoid divergence.
+        // But we also want to retain coalesced memory accesses and avoid divergence.
 
         // Discard splats that are out of frustum.
         // Right now they'll be pulled when building the list, then they'll be found to cover zero tiles.

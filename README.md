@@ -9,10 +9,24 @@ Testing splats data, including the one used for the generation of the illustrati
 
 The high level implementation is similar to the one developed by INRIA for its paper, however it is an alternative implementation built from scratch. I have deliberately chosen not to delve too much into INRIA's implementation, as I think it would've defeated the purpose of the process.
 
-Similarly to INRIA's implementation, this is a volumetric renderer. As opposed to many viewers who fundamentally are alpha blended particle systems (each splat is a transparent quad).
+Similarly to INRIA's implementation, this is a volumetric renderer. As opposed to many viewers who fundamentally are depth sorted particle systems (each splat is a transparent quad).
 
 ![Lilly Boquet Animated](images/lilly_boquet_animated.gif)
 *An animated capture of our system's output.*
+
+## About the demo
+
+A .ply file is passed as a command line argument (the only one). It is displayed in a 1024x1024 window, the resolution is static at the moment.
+
+Camera controls:
+
+* W, A, S, D, E, Q: Forward, Left, Backward, Right, Down, Up respectively.
+
+* Mouse Left: Pan mode, the camera rotates in place based on user dragging gesture.
+
+* Mouse Middle: Orbit mode, the camera orbits around the intersection of the pointer ray and the horizontal plane at the middle of the scene bounds.
+
+* Mouse Right: The camera is translated based on user dragging gesture.
 
 ## Overview
 Splats are passed to the renderer as a collection of positions, covariance matrices, and colors. For each pixel, we traverse the list of splats overlapping the pixel, ordered by depth, and blend the color contribution of each splat according to the gaussian density at this pixel.
