@@ -59,8 +59,6 @@ __device__ glm::vec4 decodeVec4(uint32_t v)
 
 // ! Code generated using the sh_gen.py python script. !
 // clang-format off
-// clang-format off
-// clang-format off
 __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const float* sh, const int stride)
 {
     const auto x = dir.x;
