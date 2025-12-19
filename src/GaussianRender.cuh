@@ -21,6 +21,7 @@ __device__ __host__ struct CameraData
     glm::mat4 view;
     glm::vec2 fovCotangent;
     glm::vec2 depthScaleBias;
+    glm::vec3 position;
     float aspect;
 };
 
@@ -55,11 +56,16 @@ __device__ __host__ struct Ellipse
 __device__ __host__ struct GlobalArgs
 {
     CameraData cameraData;
-    float4* covarianceWorldSpace;
-    float4* positionWorldSpace;
+    float4* position;
+    float4* scaleAndRotation;
+    float4* color;
+    int sphericalHarmonicsDegree;
+    int sphericalHarmonicsCount;
+    float* sphericalHarmonics;
+    // Xy and Z stored separately as they are consumed by different kernels.
     float2* positionClipSpaceXY;
     float* positionClipSpaceZ;
-    float4* color;
+    // Pack conic and color as both are consumed by the rasterization kernel.
     float4* conic;
     float4* screenEllipse;
     int32_t splatCount;
@@ -112,6 +118,9 @@ struct DoubleBuffer
 // Set constant structs holding pointers to global memory and related sizes & capacities.
 void setGlobalArgs(GlobalArgs* globalArgs);
 void setTileListArgs(TileListArgs* tileListArgs);
+
+// Evaluate view dependent spherical harmonics (degree 1+).
+void evaluateSphericalHarmonics(CudaTimer& timer, int32_t count);
 
 // Per splat initial data transformation.
 void evaluateSplatClipData(CudaTimer& timer, int32_t count);

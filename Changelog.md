@@ -1,4 +1,20 @@
 
+## CURRENT
+
+### Added
+
+* Optional evaluation of view dependent (degree 1+) Spherical Harmonics.
+
+### Changed
+
+* Refactored `PlyParser` so that it does not assume a fixed set of properties anymore and can handle varying degrees of spherical harmonics.
+
+* Dynamic reallocation of the tile list.
+
+### Removed
+
+* Conversion script `convert_ply.py` and its reference in the documentation, since the parser is not expecting a hardcoded set of properties anymore.
+
 ## 2025-12-03
 
 ### Added

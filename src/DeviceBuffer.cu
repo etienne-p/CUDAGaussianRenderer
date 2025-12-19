@@ -101,12 +101,17 @@ template <typename T>
 void DeviceBuffer<T>::copyFrom(const std::vector<T>& data)
 {
     resizeIfNeeded(data.size());
-    checkCudaErrors(cudaMemcpy(m_Ptr, &data[0], data.size() * sizeof(T), cudaMemcpyHostToDevice));
+    // TODO: Should we instead throw an error when the passed vector is empty?
+    if (data.size() != 0)
+    {
+        checkCudaErrors(cudaMemcpy(m_Ptr, &data[0], data.size() * sizeof(T), cudaMemcpyHostToDevice));
+    }
 }
 
 template <typename T>
 void DeviceBuffer<T>::copyTo(std::vector<T>& data, std::size_t count)
 {
+    // TODO: What if we're empty and have no actual data to copy to the target?
     assert(count <= m_Size);
     if (data.size() != count)
     {

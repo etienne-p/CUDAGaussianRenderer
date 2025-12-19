@@ -71,6 +71,11 @@ glm::vec3 CameraControls::getMovement() const
     return result;
 }
 
+glm::vec3 CameraControls::getPosition() const
+{
+    return m_Position;
+}
+
 glm::mat4 CameraControls::getView() const
 {
     // Or transpose rotation, subtract translation.
@@ -131,9 +136,11 @@ void CameraControls::setBounds(const glm::vec3& min, const glm::vec3& max)
     auto maxSize = glm::max(size.x, glm::max(size.y, size.z));
     // Infer speed from bounds.
     m_Speed = maxSize * 0.02f;
-    auto offset = glm::vec3(0.0f, maxSize * 0.5f, maxSize * 0.5f);
-    m_Position = center + offset;
-    m_Rotation = glm::quatLookAt(glm::normalize(-offset), k_Up);
+    // Place camera in view of the bounding box.
+    auto offset = glm::normalize(glm::vec3(0.0f, maxSize * 0.5f, maxSize * 0.5f));
+    auto dist = glm::sqrt(2.0f) * maxSize * 0.5f / glm::tan(m_FieldOfView * 0.5f);
+    m_Position = center + offset * dist;
+    m_Rotation = glm::quatLookAt(-offset, k_Up);
     m_FloorPlane = getPlane(k_Up, center);
     m_AnchorPosition = center;
 }

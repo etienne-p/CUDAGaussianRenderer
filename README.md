@@ -39,18 +39,32 @@ We recommend reading the section of the INRIA paper covering rasterization, for 
 In this section we examine each step of the rendering process. The rendering of a frame follows the following steps, each of which is implemented as a CUDA kernel. (With the exception of radix sort, which requires multiple passes and is part of the `cub` NVIDIA library.)
 
 * Set constant structs holding pointers to global memory and related sizes & capacities.
+* Optionally evaluate view dependent colors using Spherical Harmonics of degree 1+, if these are available.
 * Evaluate screen space data for each splat, including its projection, projected covariance matrix, and confidence ellipse.
 * Build the list of tiles. It contains the screen tiles overlapped by each splat.
 * Sort the list of tiles using radix sort.
 * Evaluate the range corresponding to each tile in the sorted list.
 * Rasterize each tile by traversing the list of splats overlapping it. This list is ordered by depth, front to back.
 
+### Evaluate Spherical Harmonics
+This step is optional. If the dataset only has spherical harmonics of degree zero, these are converted to colors on import and directly consumed during rasterization. If the dataset has extra spherical harmonics, we evaluate them based on the view to determine the color of each splat
+
+Spherical harmonics are stored in a dedicated buffer and laid out so that the memory accesses within each thread group are coalesced. The layout corresponds to a flattened `[degree, order, channel]` shape. For example, with a group size of 256, we'd have 256 `sh0`, followed by 256 `sh1`, and so on.
+
+The `sphericalHarmonics` function code is generated using the `sh_gen.py` python script. Using [this project](https://github.com/elerac/sh_table) as a starting point, we are able to generate the code with a high level of control, up to arbitrary degrees. _The alternative would've been copy-pasting code from another renderer, which goes against the educational purpose of this project._
+
+![Visualize Tiles](images/harmonics_animated.gif)
+
+*A visualization of Spherical Harmonics of degree 1 to 3.*
+
 ### Evaluate Splat Clip Data
-For each splat, we evaluate screen space data, consumed by subsequent steps, based on world space data. This includes:
+For each splat, we determine whether the splat is within the viewing frustum and evaluate the corresponding screen space data, consumed by subsequent steps. This includes:
 
 * The para-perspective projection matrix (the Jacobian projection in the EWA Splatting paper) derived from camera parameters and view space position. Each splat has its own affine projection matrix, allowing it to be projected on screen as an ellipse.
 * The screen space ellipse whose principal axes are aligned with the projected splat. These axes are the eigen vectors of the projected covariance matrix. We can think of this ellipse as the splat's outline. It is the gaussian confidence ellipse. It is later used to test whether splats overlap with tiles.
 * The inverse screen space covariance matrix, in 2 dimensions. It is later used to sample the gaussian density at a pixel during rasterization.
+
+Note that scale and rotation are packed together in a `float4`. The 4th component holds the quantized rotation, each component of the quaternion is quantized on 8 bits.
 
 We recommend taking a look at the "EWA Splatting" paper for a rigorous examination of the mathematics involved.
 
@@ -67,6 +81,9 @@ We subdivide the screen in 16x16 tiles. Such tiles fit in shared memory, which i
 
 The heart of the kernel is each thread of the group performing an ellipse/rectangle overlap test. The ellipse corresponds to the outline of a splat, the rectangle corresponds to the bounds of a tile. (Note: some implementations use oriented rectangular bounding boxes for splats. This leads to more tiles covered by splats.) If there is an overlap, the splat is added to the list of splats to traverse for the rasterization of this tile. We need to distribute the workload among the group's threads. The first warp loads a chunk of splats, and for each of them, evaluates an axis aligned bounding rectangle in tiles space. Each thread evaluates the number of tiles requiring an overlap test for the splat they have loaded. These tile counts are scanned within the warp. We can then proceed to workload distribution. Each thread within the warp writes the index of the splat it loaded over a section of a shared buffer. Each slot within this shared buffer corresponds to a thread in the group. It is likely that we have more tiles to process than threads in the group, in which case we execute multiple passes until all tiles are processed. We then go back to the loading stage, where the first warp attempts to load another chunk of splats.
 ![Build Tile List](images/build_tile_list.png)
+
+_2025-12 Note: When I wrote the first version of this algorithm, I was only aware of the original 3DGS paper, in which the evaluation of tile overlaps is a bit wasteful. I've since come across "FlashGS: Efficient 3D Gaussian Splatting for Large-scale and High-resolution Rendering" and "Speedy-Splat: Fast 3D Gaussian Splatting with Sparse Pixels and Sparse Primitives
+" who also compute precise tile/ellipse intersections._
 
 Whenever a thread determines that the tile it's responsible for overlaps the splat it was allocated, it writes a key/value pair to shared memory and bumps the count of pairs to be added to the global tile list. Using shared memory to gather data allows us to then commit to global memory with coalesced writes.
 
@@ -105,7 +122,7 @@ Arguments to the kernels are uploaded as constant struct, they need to be upload
 So far, for simplicity reasons, the rendering resolution is hardcoded.
 The existing rendering stages have been profiled and optimized. However, going beyond the scope of this project, performance could be improved by introducing hierarchical spatial acceleration structures to store splats.
 
-Performance varies depending on the camera view. In this demo we use an orbiting camera controller that accounts for the overall bounding box of the set of splats. It is more suitable for objects than environments (the latter would rather call for a free flying camera). There is a roughly linear relationship between global performance and the size of the tile list. The confidence ellipse outlining a projected splat is scaled based on the "3-sigma rule". However in practice it seems that we could go below this threshold with little noticeable visual degradation, to improve performance. Ultimately, we're facing the problem of gaussian kernels having infinite support.
+Performance varies depending on the camera view. There is a roughly linear relationship between global performance and the size of the tile list. The confidence ellipse outlining a projected splat is scaled based on the "3-sigma rule". However in practice it seems that we could go below this threshold with little noticeable visual degradation, to improve performance. Ultimately, we're facing the problem of gaussian kernels having infinite support.
 
 ![Visualize Tiles](images/visualize_tiles.png)
 
@@ -148,5 +165,3 @@ https://www.headsketch.xyz/polycam_
 _Not for commercial use!
 Provided courtesy of David Lisser: https://davidlisser.co.uk/.
 Spherical harmonics (f_rest\_*) attributes not included due to GitHub file size limits._
-
-As of now we use a naive `.ply` parser that expects one level of spherical harmonics. So we use a `convert.py` script to trim extra spherical harmonics from files who include them.

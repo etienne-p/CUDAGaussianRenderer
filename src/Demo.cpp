@@ -114,33 +114,31 @@ float4 glmToBuiltin4(const glm::vec4& v)
     return float4{v.x, v.y, v.z, v.w};
 }
 
+// TODO: Add color buffer.
 // Used to generate random test splats.
 void generateRandomGaussians(
-    std::vector<float4>& positionWorldSpace,
-    std::vector<float4>& covarianceWorldSpace,
+    std::vector<float4>& position,
+    std::vector<float4>& scaleAndRotation,
+    std::vector<float4>& color,
     const float minScale,
     const float maxScale,
     const glm::vec4& minPosition,
     const glm::vec4& maxPosition)
 {
-    for (auto i = 0; i != positionWorldSpace.size(); ++i)
+    for (auto i = 0; i != position.size(); ++i)
     {
+        auto translation = glm::linearRand(minPosition, maxPosition);
         auto rotAxis = glm::sphericalRand(1.0f);
         auto rotAngle = glm::linearRand(0.0f, glm::pi<float>());
-        auto rotation = glm::mat3_cast(glm::angleAxis(rotAngle, rotAxis));
-        auto scaleTrace =
-            glm::linearRand(glm::vec3(minScale, minScale, minScale), glm::vec3(maxScale, maxScale, maxScale));
-        auto scale = glm::mat3(0);
-        scale[0][0] = scaleTrace[0];
-        scale[1][1] = scaleTrace[1];
-        scale[2][2] = scaleTrace[2];
+        auto rotation = glm::angleAxis(rotAngle, rotAxis);
+        auto scale = glm::linearRand(glm::vec3(minScale, minScale, minScale), glm::vec3(maxScale, maxScale, maxScale));
 
-        auto RS = rotation * scale;
-        auto cov = RS * glm::transpose(RS);
-        // Covariance is symmetric.
-        covarianceWorldSpace[i * 2 + 0] = float4{cov[0][0], cov[1][0], cov[2][0], 0};
-        covarianceWorldSpace[i * 2 + 1] = float4{cov[1][1], cov[2][1], cov[2][2], 0};
-        positionWorldSpace[i] = glmToBuiltin4(glm::linearRand(minPosition, maxPosition));
+        auto col = glm::linearRand(glm::vec4(0), glm::vec4(1));
+        auto quantizedRotation = encodeVec4((glm::vec4(rotation.x, rotation.y, rotation.z, rotation.w) + 1.0f) * 0.5f);
+
+        position[i] = float4{translation.x, translation.y, translation.z, 1.0f};
+        scaleAndRotation[i] = float4{scale.x, scale.y, scale.z, reinterpret_cast<float&>(quantizedRotation)};
+        color[i] = float4{col.x, col.y, col.z, col.w};
     }
 }
 
@@ -150,12 +148,50 @@ const glm::vec2 k_QuadUvs[] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
 struct Stats
 {
+    double evaluateSphericalHarmonics{0};
     double evaluateClipData{0};
     double buildTileList{0};
     double sortTileList{0};
     double evaluateTileRanges{0};
     double renderDepthBuffer{0};
 };
+
+// Re-align spherical harmonics for more efficient memory usage on the GPU.
+void realignSphericalHarmonics(
+    const std::vector<float>& srcSh,
+    std::vector<float>& dstSh,
+    const int groupSize,
+    const int shCount,
+    const int splatCount)
+{
+    auto shCountPerComponent = shCount / 3;
+    // Verify it's a multiple.
+    assert(shCountPerComponent * 3 == shCount);
+
+    auto idx = 0;
+    auto groupCount = (int) glm::ceil(splatCount / (float) groupSize);
+
+    // We may have unused space for the last group but we do not break alignment.
+    dstSh.resize(groupCount * groupSize * shCount);
+
+    for (auto grp = 0; grp != groupCount; ++grp)
+    {
+        auto start = grp * groupSize * shCount;
+        auto thisGroupSize = glm::min(groupSize, splatCount - grp * groupSize);
+
+        // For all spherical harmonics.
+        for (auto i = 0; i != shCount; ++i)
+        {
+            // For each group item.
+            for (auto k = 0; k != thisGroupSize; ++k)
+            {
+                auto srcIdx = shCount * k + i;
+                auto dstIdx = groupSize * i + k;
+                dstSh[start + dstIdx] = srcSh[start + srcIdx];
+            }
+        }
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -213,42 +249,52 @@ int main(int argc, char* argv[])
 
     auto cameraControls = CameraControls(window, glm::vec2(k_ScreenSize));
 
+    std::vector<float> sphericalHarmonics;
+    int sphericalHarmonicsDegree{0};
+    int sphericalHarmonicsCount{0};
+
 #if false
-    // Use randomly generated splats.
+    // Use randomly generated splats. Useful for testing and debugging.
     constexpr int32_t splatCount = 1 << 4;
     constexpr auto worldBoundsExtent = 4.0f;
-    cameraControls.setBounds(glm::vec3(-worldBoundsExtent), glm::vec3(worldBoundsExtent))
 
     const auto minPosition = glm::vec4(-worldBoundsExtent, -worldBoundsExtent, -worldBoundsExtent, 1.0f);
     const auto maxPosition = glm::vec4(worldBoundsExtent, worldBoundsExtent, worldBoundsExtent, 1.0f);
 
-    auto positionWorldSpace = std::vector<float4>(splatCount);
-    auto covarianceWorldSpace = std::vector<float4>(splatCount * 2);
-    generateRandomGaussians(
-        positionWorldSpace,
-        covarianceWorldSpace,
-        0.01f,
-        0.5f,
-        minPosition,
-        maxPosition);
-
+    auto position = std::vector<float4>(splatCount);
+    auto scaleAndRotation = std::vector<float4>(splatCount);
     auto color = std::vector<float4>(splatCount);
-    for (auto i = 0; i != splatCount; ++i)
-    {
-        color[i] = glmToBuiltin4(glm::linearRand(glm::vec4(0), glm::vec4(1)));
-    }
+    generateRandomGaussians(position, scaleAndRotation, color, 0.01f, 0.5f, minPosition, maxPosition);
+
+    cameraControls.setBounds(glm::vec3(-worldBoundsExtent), glm::vec3(worldBoundsExtent));
 
 #else
     // Load splats from a .ply file.
-    std::vector<float4> positionWorldSpace;
-    std::vector<float4> covarianceWorldSpace;
+    std::vector<float4> position;
+    std::vector<float4> scaleAndRotation;
     std::vector<float4> color;
-
     glm::vec3 boundsMin;
     glm::vec3 boundsMax;
-    auto splatCount = ParsePly(argv[1], positionWorldSpace, covarianceWorldSpace, color, boundsMin, boundsMax);
+    auto splatCount = parsePly(
+        argv[1],
+        position,
+        scaleAndRotation,
+        color,
+        sphericalHarmonics,
+        sphericalHarmonicsDegree,
+        sphericalHarmonicsCount,
+        boundsMin,
+        boundsMax);
+    auto hasExtraSphericalHarmonics = sphericalHarmonicsDegree > 1;
 
-    // Orbit around dataset, based on the dataset bounding box.
+    std::vector<float> alignedSphericalHarmonics;
+    if (sphericalHarmonicsDegree != 0)
+    {
+        realignSphericalHarmonics(
+            sphericalHarmonics, alignedSphericalHarmonics, 256, sphericalHarmonicsCount, splatCount);
+        std::swap(sphericalHarmonics, alignedSphericalHarmonics);
+    }
+
     cameraControls.setBounds(boundsMin, boundsMax);
 
 #endif
@@ -265,17 +311,18 @@ int main(int argc, char* argv[])
     auto glColorBuffer = GLBuffer<uchar4, GL_PIXEL_UNPACK_BUFFER>(k_ScreenSize * k_ScreenSize);
 
     // CUDA buffers.
-    auto positionWorldSpaceBuffer = DeviceBuffer<float4>(positionWorldSpace);
-    auto covarianceWorldSpaceBuffer = DeviceBuffer<float4>(covarianceWorldSpace);
+    auto positionBuffer = DeviceBuffer<float4>(position);
+    auto scaleAndRotationBuffer = DeviceBuffer<float4>(scaleAndRotation);
     auto colorBuffer = DeviceBuffer<float4>(color);
-    auto conicBuffer = DeviceBuffer<float4>(splatCount);
+    auto sphericalHarmonicsBuffer = DeviceBuffer<float>(sphericalHarmonics);
+    auto conicAndColorBuffer = DeviceBuffer<float4>(splatCount);
     auto positionClipSpaceXYBuffer = DeviceBuffer<float2>(splatCount);
     auto positionClipSpaceZBuffer = DeviceBuffer<float>(splatCount);
     auto screenEllipseBuffer = DeviceBuffer<float4>(splatCount);
     auto tileRangeBuffer = DeviceBuffer<int32_t>(k_TotalTiles * 2);
 
     // Static size, no dynamic alloc for now.
-    auto tileListCapacity = splatCount * 256;
+    auto tileListCapacity = splatCount * 8;
 
     // Double buffers for the tile list.
     auto tileListKeysCurrentBuffer = DeviceBuffer<uint64_t>(tileListCapacity);
@@ -291,17 +338,32 @@ int main(int argc, char* argv[])
     auto colorBufferResource = CudaGraphicsResource(glColorBuffer.getBufferId(), cudaGraphicsRegisterFlagsNone);
 
     Stats stats;
-    long frameCount = 0;
+    long frameCount{0};
     auto cudaTimer = CudaTimer();
 
     // We use a timer to cap frame rate.
     auto lastTime = glfwGetTime();
-    auto deltaTime = 0.0f;
+    auto deltaTime{0.0f};
+
+    // Track whether the tile list is saturated.
+    auto tileListIsSaturated{false};
 
     // Update loop.
     do
     {
         ++frameCount;
+
+        // Re-allocate tile list if needed.
+        if (tileListIsSaturated)
+        {
+            // Double the size of the tile list.
+            tileListCapacity <<= 1;
+            tileListKeysCurrentBuffer.resizeIfNeeded(tileListCapacity);
+            tileListValuesCurrentBuffer.resizeIfNeeded(tileListCapacity);
+            tileListKeysAlternateBuffer.resizeIfNeeded(tileListCapacity);
+            tileListValuesAlternateBuffer.resizeIfNeeded(tileListCapacity);
+            tileListIsSaturated = false;
+        }
 
         // Update time.
         auto time = glfwGetTime();
@@ -313,6 +375,7 @@ int main(int argc, char* argv[])
 
         // Build camera data.
         CameraData cameraData;
+        cameraData.position = cameraControls.getPosition();
         cameraData.aspect = cameraControls.getAspect();
         cameraData.projection = cameraControls.getProjection();
         cameraData.viewProjection = cameraControls.getViewProjection();
@@ -339,16 +402,19 @@ int main(int argc, char* argv[])
             // Set all pointers to 0xFFFFFFFF = -1
             tileRangeBuffer.clearMemory(255);
 
-            // Set global gata.
+            // Set global data.
             GlobalArgs globalArgs;
             globalArgs.splatCount = splatCount;
             globalArgs.positionClipSpaceXY = positionClipSpaceXYBuffer.getPtr();
             globalArgs.positionClipSpaceZ = positionClipSpaceZBuffer.getPtr();
+            globalArgs.sphericalHarmonicsDegree = sphericalHarmonicsDegree;
+            globalArgs.sphericalHarmonicsCount = sphericalHarmonicsCount;
+            globalArgs.sphericalHarmonics = sphericalHarmonicsBuffer.getPtr();
             globalArgs.screenEllipse = screenEllipseBuffer.getPtr();
-            globalArgs.positionWorldSpace = positionWorldSpaceBuffer.getPtr();
-            globalArgs.covarianceWorldSpace = covarianceWorldSpaceBuffer.getPtr();
+            globalArgs.position = positionBuffer.getPtr();
+            globalArgs.scaleAndRotation = scaleAndRotationBuffer.getPtr();
             globalArgs.color = colorBuffer.getPtr();
-            globalArgs.conic = conicBuffer.getPtr();
+            globalArgs.conic = conicAndColorBuffer.getPtr();
             globalArgs.tileRange = tileRangeBuffer.getPtr();
             globalArgs.backBuffer = colorBinding.getPtr();
             globalArgs.cameraData = cameraData;
@@ -363,6 +429,12 @@ int main(int argc, char* argv[])
 
             setTileListArgs(&tileListArgs);
 
+            if (sphericalHarmonicsDegree != 0)
+            {
+                evaluateSphericalHarmonics(cudaTimer, splatCount);
+                stats.evaluateSphericalHarmonics += (double) cudaTimer.getElapseTimedMs();
+            }
+
             evaluateSplatClipData(cudaTimer, splatCount);
             stats.evaluateClipData += (double) cudaTimer.getElapseTimedMs();
 
@@ -370,6 +442,9 @@ int main(int argc, char* argv[])
             tileListArgs.size = buildTileList(cudaTimer, prop.multiProcessorCount * 8, tileListCapacity);
             assert(tileListArgs.size <= tileListCapacity);
             stats.buildTileList += (double) cudaTimer.getElapseTimedMs();
+
+            // Track whether the tile list is saturated.
+            tileListIsSaturated = tileListArgs.size == tileListCapacity;
 
             // Update render list args with render list size.
             setTileListArgs(&tileListArgs);
@@ -464,6 +539,7 @@ int main(int argc, char* argv[])
     glfwTerminate();
 
     // Evaluate profiling averages and print to terminal.
+    stats.evaluateSphericalHarmonics /= (double) frameCount;
     stats.evaluateClipData /= (double) frameCount;
     stats.buildTileList /= (double) frameCount;
     stats.sortTileList /= (double) frameCount;
@@ -477,6 +553,7 @@ int main(int argc, char* argv[])
         stats.evaluateTileRanges + //
         stats.renderDepthBuffer; //
 
+    printf("evaluateSphericalHarmonics average time ms: %2.6f\n", stats.evaluateSphericalHarmonics);
     printf("evaluateClipData average time ms: %2.6f\n", stats.evaluateClipData);
     printf("buildTileList average time ms: %2.6f\n", stats.buildTileList);
     printf("sortTileList average time ms: %2.6f\n", stats.sortTileList);

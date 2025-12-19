@@ -52,34 +52,181 @@ void setTileListArgs(TileListArgs* tileListArgs)
     checkCudaErrors(cudaMemcpyToSymbol(g_TileListArgs, tileListArgs, sizeof(TileListArgs), 0, cudaMemcpyHostToDevice));
 }
 
+__device__ glm::vec4 decodeVec4(uint32_t v)
+{
+    return glm::vec4((v >> 24u) & 0xFF, (v >> 16u) & 0xFF, (v >> 8u) & 0xFF, v & 0xFF) / 255.0f;
+}
+
+// ! Code generated using the sh_gen.py python script. !
+// clang-format off
+// clang-format off
+// clang-format off
+__device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const float* sh, const int stride)
+{
+    const auto x = dir.x;
+    const auto y = dir.y;
+    const auto z = dir.z;
+    auto result = glm::vec3(0.0f);
+
+    // Level 0.
+    auto sh0 = glm::vec3(loadReadOnly(&sh[0 * stride]), loadReadOnly(&sh[1 * stride]), loadReadOnly(&sh[2 * stride]));
+
+    result +=
+        (0.282094792F) * sh0;
+
+    // Level 1.
+    if (l > 0)
+    {
+        auto sh1 = glm::vec3(loadReadOnly(&sh[3 * stride]), loadReadOnly(&sh[4 * stride]), loadReadOnly(&sh[5 * stride]));
+        auto sh2 = glm::vec3(loadReadOnly(&sh[6 * stride]), loadReadOnly(&sh[7 * stride]), loadReadOnly(&sh[8 * stride]));
+        auto sh3 = glm::vec3(loadReadOnly(&sh[9 * stride]), loadReadOnly(&sh[10 * stride]), loadReadOnly(&sh[11 * stride]));
+
+        result +=
+            (0.488602512F*y) * sh1 +
+            (0.488602512F*z) * sh2 +
+            (0.488602512F*x) * sh3;
+
+        // Level 2.
+        if (l > 1)
+        {
+            auto xx = x * x;
+            auto yy = y * y;
+            auto zz = z * z;
+
+            auto sh4 = glm::vec3(loadReadOnly(&sh[12 * stride]), loadReadOnly(&sh[13 * stride]), loadReadOnly(&sh[14 * stride]));
+            auto sh5 = glm::vec3(loadReadOnly(&sh[15 * stride]), loadReadOnly(&sh[16 * stride]), loadReadOnly(&sh[17 * stride]));
+            auto sh6 = glm::vec3(loadReadOnly(&sh[18 * stride]), loadReadOnly(&sh[19 * stride]), loadReadOnly(&sh[20 * stride]));
+            auto sh7 = glm::vec3(loadReadOnly(&sh[21 * stride]), loadReadOnly(&sh[22 * stride]), loadReadOnly(&sh[23 * stride]));
+            auto sh8 = glm::vec3(loadReadOnly(&sh[24 * stride]), loadReadOnly(&sh[25 * stride]), loadReadOnly(&sh[26 * stride]));
+
+            result +=
+                (1.09254843F*x*y) * sh4 +
+                (1.09254843F*y*z) * sh5 +
+                (-0.946174696F*xx - 0.946174696F*yy + 0.630783131F) * sh6 +
+                (1.09254843F*x*z) * sh7 +
+                (0.546274215F*(x - y)*(x + y)) * sh8;
+
+            // Level 3.
+            if (l > 2)
+            {
+                auto sh9 = glm::vec3(loadReadOnly(&sh[27 * stride]), loadReadOnly(&sh[28 * stride]), loadReadOnly(&sh[29 * stride]));
+                auto sh10 = glm::vec3(loadReadOnly(&sh[30 * stride]), loadReadOnly(&sh[31 * stride]), loadReadOnly(&sh[32 * stride]));
+                auto sh11 = glm::vec3(loadReadOnly(&sh[33 * stride]), loadReadOnly(&sh[34 * stride]), loadReadOnly(&sh[35 * stride]));
+                auto sh12 = glm::vec3(loadReadOnly(&sh[36 * stride]), loadReadOnly(&sh[37 * stride]), loadReadOnly(&sh[38 * stride]));
+                auto sh13 = glm::vec3(loadReadOnly(&sh[39 * stride]), loadReadOnly(&sh[40 * stride]), loadReadOnly(&sh[41 * stride]));
+                auto sh14 = glm::vec3(loadReadOnly(&sh[42 * stride]), loadReadOnly(&sh[43 * stride]), loadReadOnly(&sh[44 * stride]));
+                auto sh15 = glm::vec3(loadReadOnly(&sh[45 * stride]), loadReadOnly(&sh[46 * stride]), loadReadOnly(&sh[47 * stride]));
+
+                result +=
+                    (0.295021795F*y*(6.0F*xx - 2.0F*yy)) * sh9 +
+                    (2.89061144F*x*y*z) * sh10 +
+                    (3.6563664F*y*(-0.625F*xx - 0.625F*yy + 0.5F)) * sh11 +
+                    (0.373176333F*z*(-5.0F*xx - 5.0F*yy + 2.0F)) * sh12 +
+                    (0.457045799F*x*(-5.0F*xx - 5.0F*yy + 4.0F)) * sh13 +
+                    (1.44530572F*z*(x - y)*(x + y)) * sh14 +
+                    (0.59004359F*x*(xx - 3.0F*yy)) * sh15;
+
+                // Level 4.
+                if (l > 3)
+                {
+                    auto sh16 = glm::vec3(loadReadOnly(&sh[48 * stride]), loadReadOnly(&sh[49 * stride]), loadReadOnly(&sh[50 * stride]));
+                    auto sh17 = glm::vec3(loadReadOnly(&sh[51 * stride]), loadReadOnly(&sh[52 * stride]), loadReadOnly(&sh[53 * stride]));
+                    auto sh18 = glm::vec3(loadReadOnly(&sh[54 * stride]), loadReadOnly(&sh[55 * stride]), loadReadOnly(&sh[56 * stride]));
+                    auto sh19 = glm::vec3(loadReadOnly(&sh[57 * stride]), loadReadOnly(&sh[58 * stride]), loadReadOnly(&sh[59 * stride]));
+                    auto sh20 = glm::vec3(loadReadOnly(&sh[60 * stride]), loadReadOnly(&sh[61 * stride]), loadReadOnly(&sh[62 * stride]));
+                    auto sh21 = glm::vec3(loadReadOnly(&sh[63 * stride]), loadReadOnly(&sh[64 * stride]), loadReadOnly(&sh[65 * stride]));
+                    auto sh22 = glm::vec3(loadReadOnly(&sh[66 * stride]), loadReadOnly(&sh[67 * stride]), loadReadOnly(&sh[68 * stride]));
+                    auto sh23 = glm::vec3(loadReadOnly(&sh[69 * stride]), loadReadOnly(&sh[70 * stride]), loadReadOnly(&sh[71 * stride]));
+                    auto sh24 = glm::vec3(loadReadOnly(&sh[72 * stride]), loadReadOnly(&sh[73 * stride]), loadReadOnly(&sh[74 * stride]));
+
+                    result +=
+                        (2.50334294F*x*y*(xx - yy)) * sh16 +
+                        (0.295021795F*y*z*(18.0F*xx - 6.0F*yy)) * sh17 +
+                        (1.26156626F*x*y*(-5.25F*xx - 5.25F*yy + 4.5F)) * sh18 +
+                        (1.78412412F*y*z*(-2.625F*xx - 2.625F*yy + 1.5F)) * sh19 +
+                        (7.40498828F*xx*yy - 4.23142188F*xx + 3.70249414F*xx*xx - 4.23142188F*yy + 3.70249414F*yy*yy + 0.846284375F) * sh20 +
+                        (0.669046544F*x*z*(-7.0F*xx - 7.0F*yy + 4.0F)) * sh21 +
+                        (-0.473087348F*(x - y)*(x + y)*(7.0F*xx + 7.0F*yy - 6.0F)) * sh22 +
+                        (1.77013077F*x*z*(xx - 3.0F*yy)) * sh23 +
+                        (-3.75501441F*xx*yy + 0.625835735F*xx*xx + 0.625835735F*yy*yy) * sh24;
+                }
+            }
+        }
+    }
+    return glm::clamp(result + 0.5f);
+}
+// clang-format on
+
+__global__ void evaluateSphericalHarmonicsKernel()
+{
+    auto index = threadIdx.x + blockIdx.x * blockDim.x;
+    if (index < g_GlobalArgs.splatCount)
+    {
+        auto positionData = loadReadOnly(&g_GlobalArgs.position[index]);
+
+        auto splatPosition = glm::vec3(positionData.x, positionData.y, positionData.z);
+
+        // Bundle opacity with position. Otherwise we'd have to read from color.
+        auto opacity = positionData.w;
+
+        // We align spherical harmonics using 4 floats for aligned access.
+        auto rayDir = glm::normalize(g_GlobalArgs.cameraData.position - splatPosition);
+
+        // Each spherical harmonic is laid out contiguously for the threads of the group.
+        auto shIdx = blockIdx.x * blockDim.x * g_GlobalArgs.sphericalHarmonicsCount + threadIdx.x;
+
+        // Note: stride is not useful with consecutive SH for each splat.
+        auto shColor = sphericalHarmonics(
+            g_GlobalArgs.sphericalHarmonicsDegree, rayDir, &g_GlobalArgs.sphericalHarmonics[shIdx], blockDim.x);
+
+        g_GlobalArgs.color[index] = float4{shColor.x, shColor.y, shColor.z, opacity};
+    }
+}
+
+void evaluateSphericalHarmonics(CudaTimer& timer, int32_t count)
+{
+    // Each block processes 256 splats.
+    // Dispatch as many groups as required.
+    constexpr int32_t threadPerBlock{256};
+    const int32_t numBlocks{(count + threadPerBlock - 1) / threadPerBlock};
+    const auto dimBlock{dim3(threadPerBlock)};
+    const auto dimGrid{dim3(numBlocks)};
+
+    timer.start();
+    evaluateSphericalHarmonicsKernel<<<dimGrid, dimBlock>>>();
+    timer.stop();
+
+    if (cudaGetLastError() != cudaSuccess)
+    {
+        printf("kernel error evaluateSphericalHarmonics\n");
+    }
+}
+
 // Infer clip space data from world space data for each splat.
 __global__ void evaluateSplatClipDataKernel()
 {
     auto index = threadIdx.x + blockIdx.x * blockDim.x;
     if (index < g_GlobalArgs.splatCount)
     {
-        auto splatPositionData = loadReadOnly(&g_GlobalArgs.positionWorldSpace[index]);
-        // TODO: Should we layout all first vectors then all second vectors? (~ SoA vs AoS.)
-        auto splatCovarianceData0 = loadReadOnly(&g_GlobalArgs.covarianceWorldSpace[index * 2 + 0]);
-        auto splatCovarianceData1 = loadReadOnly(&g_GlobalArgs.covarianceWorldSpace[index * 2 + 1]);
+        auto positionData = loadReadOnly(&g_GlobalArgs.position[index]);
+        auto scaleAndRotationData = loadReadOnly(&g_GlobalArgs.scaleAndRotation[index]);
 
-        auto splatPosition = glm::vec3(splatPositionData.x, splatPositionData.y, splatPositionData.z);
+        auto position = glm::vec3(positionData.x, positionData.y, positionData.z);
 
-        // Unpack covariance.
-        auto splatCovariance = glm::mat3();
-        splatCovariance[0][0] = splatCovarianceData0.x;
-        splatCovariance[1][0] = splatCovarianceData0.y;
-        splatCovariance[2][0] = splatCovarianceData0.z;
-        splatCovariance[1][1] = splatCovarianceData1.x;
-        splatCovariance[2][1] = splatCovarianceData1.y;
-        splatCovariance[2][2] = splatCovarianceData1.z;
-        // Copy symmetric part.
-        splatCovariance[0][1] = splatCovariance[1][0];
-        splatCovariance[0][2] = splatCovariance[2][0];
-        splatCovariance[1][2] = splatCovariance[2][1];
+        // Evaluate covariance.
+        auto scale3x3 = glm::mat3(0);
+        scale3x3[0][0] = scaleAndRotationData.x;
+        scale3x3[1][1] = scaleAndRotationData.y;
+        scale3x3[2][2] = scaleAndRotationData.z;
+
+        auto rotationValue = decodeVec4(reinterpret_cast<uint32_t&>(scaleAndRotationData.w)) * 2.0f - 1.0f;
+        auto rotation = glm::quat::wxyz(rotationValue.w, rotationValue.x, rotationValue.y, rotationValue.z);
+
+        auto RS = glm::mat3_cast(rotation) * scale3x3;
+        auto splatCovariance = RS * glm::transpose(RS);
 
         // Centroid of the gaussian in view space.
-        auto viewPosition = (glm::vec3)(g_GlobalArgs.cameraData.view * glm::vec4(splatPosition, 1));
+        auto viewPosition = (glm::vec3)(g_GlobalArgs.cameraData.view * glm::vec4(position, 1));
         // We precompute camera related variables such as cotangents and Z parameters.
         auto fovCotangent = g_GlobalArgs.cameraData.fovCotangent;
         // We map the Z axis linearly, similarly to an orthographic projection.
@@ -120,9 +267,13 @@ __global__ void evaluateSplatClipDataKernel()
         auto clipPosition = (glm::vec3)(affineProjection * glm::vec4(viewPosition, 1));
 
         // Tiny bump proportional to the area of a texel in clip space.
+        // So that each splat at least cover a pixel.
+        // Otherwise splats would disappear as they move away from the camera.
+        // Too small for being hit by texel rays during rasterization.
+        constexpr float k_Pi{3.14159265359};
+        constexpr float k_TexelSizeClip{2.0f / (float) k_ScreenSize};
         // Note: ellipse area is Pi * sqrt(det(cov)).
-        constexpr float k_TexelSizeClip = 2.0f / (float) k_ScreenSize;
-        constexpr float k_TraceBump = 0.05f * k_TexelSizeClip * k_TexelSizeClip;
+        constexpr float k_TraceBump{(1.0f / k_Pi) * k_TexelSizeClip * k_TexelSizeClip};
         clipCovariance[0][0] += k_TraceBump;
         clipCovariance[1][1] += k_TraceBump;
         // Evaluate the eigen decomposition of the 2D covariance matrix to obtain
@@ -175,7 +326,7 @@ __global__ void evaluateSplatClipDataKernel()
         g_GlobalArgs.positionClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
         g_GlobalArgs.positionClipSpaceZ[index] = clipPosition.z;
         g_GlobalArgs.screenEllipse[index] = float4{glm::cos(angle), glm::sin(angle), extent.x, extent.y};
-        g_GlobalArgs.conic[index] = float4{conic.x, conic.y, conic.z, 0};
+        g_GlobalArgs.conic[index] = float4{conic.x, conic.y, conic.z, 0.0f};
     }
 }
 
@@ -183,10 +334,10 @@ void evaluateSplatClipData(CudaTimer& timer, int32_t count)
 {
     // Each block processes 256 splats.
     // Dispatch as many groups as required.
-    constexpr int32_t threadPerBlock = 256;
-    const int32_t numBlocks = (count + threadPerBlock - 1) / threadPerBlock;
-    const auto dimBlock = dim3(threadPerBlock);
-    const auto dimGrid = dim3(numBlocks);
+    constexpr int32_t threadPerBlock{256};
+    const int32_t numBlocks{(count + threadPerBlock - 1) / threadPerBlock};
+    const auto dimBlock{dim3(threadPerBlock)};
+    const auto dimGrid{dim3(numBlocks)};
 
     timer.start();
     evaluateSplatClipDataKernel<<<dimGrid, dimBlock>>>();
@@ -286,11 +437,11 @@ __device__ __forceinline__ Rect getAABBRect(const Ellipse& ellipse)
     return rect;
 }
 
-constexpr uint32_t k_WarpMask = 0xffffffff;
-constexpr int32_t k_WarpSize = 32;
-constexpr int32_t k_WarpHalfSize = k_WarpSize / 2;
-constexpr int32_t k_BuildTileListsThreadsPerGroup = k_WarpSize * 8;
-constexpr uint32_t k_MaxUint32 = std::numeric_limits<uint32_t>::max();
+constexpr uint32_t k_WarpMask{0xffffffff};
+constexpr int32_t k_WarpSize{32};
+constexpr int32_t k_WarpHalfSize{k_WarpSize / 2};
+constexpr int32_t k_BuildTileListsThreadsPerGroup{k_WarpSize * 8};
+constexpr uint32_t k_MaxUint32{std::numeric_limits<uint32_t>::max()};
 
 // Clip depth in range [-1, 1]. (OpenGL convention.)
 // Combine tile index and clip depth to form a sorting key.
@@ -621,7 +772,7 @@ __global__ void buildTileListKernel()
 }
 
 // A helper used to set and get the number of tiles emitted on the device.
-static int32_t initCounter = 0;
+static int32_t initCounter{0};
 
 // Emit tiles per splat.
 int32_t buildTileList(CudaTimer& timer, int32_t numBlocks, int32_t tileListCapacity)
@@ -666,8 +817,8 @@ void sortTileList(CudaTimer& timer,
     // We can skip the top bits in the key.
     // 32 bits for depth, 12 bits for tile index.
     // (Depends on the number of tiles on screen, which is hardcoded.)
-    constexpr int32_t beginBit = 0;
-    constexpr int32_t endBit = 32 + 12;
+    constexpr int32_t beginBit{0};
+    constexpr int32_t endBit{32 + 12};
 
     // Instantiate cub:: double buffers.
     cub::DoubleBuffer<uint64_t> cubKeys(keys.current(), keys.alternate());
@@ -741,10 +892,10 @@ __global__ void evaluateTileRangesKernel()
 // Evaluate ranges within the list corresponding to each tile.
 void evaluateTileRange(CudaTimer& timer, int32_t tileListSize)
 {
-    constexpr int32_t threadPerBlock = 256;
-    const int32_t numBlocks = (tileListSize + threadPerBlock - 1) / threadPerBlock;
-    const auto dimBlock = dim3(threadPerBlock);
-    const auto dimGrid = dim3(numBlocks);
+    constexpr int32_t threadPerBlock{256};
+    const int32_t numBlocks{(tileListSize + threadPerBlock - 1) / threadPerBlock};
+    const auto dimBlock{dim3(threadPerBlock)};
+    const auto dimGrid{dim3(numBlocks)};
 
     timer.start();
     evaluateTileRangesKernel<<<dimGrid, dimBlock>>>();
@@ -806,9 +957,11 @@ __global__ void rasterizeTilesKernel()
         if (threadIdx.x < splatsCount)
         {
             auto srcIndex = g_TileListArgs.values[s_FirstSplatIndex + threadIdx.x];
-            s_Colors[threadIdx.x] = loadReadOnly(&g_GlobalArgs.color[srcIndex]);
-            s_Conics[threadIdx.x] = loadReadOnly(&g_GlobalArgs.conic[srcIndex]);
             s_Centers[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionClipSpaceXY[srcIndex]);
+            auto conicData = loadReadOnly(&g_GlobalArgs.conic[srcIndex]);
+            auto colorData = loadReadOnly(&g_GlobalArgs.color[srcIndex]);
+            s_Colors[threadIdx.x] = float4{colorData.x, colorData.y, colorData.z, colorData.w};
+            s_Conics[threadIdx.x] = float4{conicData.x, conicData.y, conicData.z, 0.0f};
         }
 
         // Wait for loaded data to be visible to all threads.
@@ -847,6 +1000,12 @@ __global__ void rasterizeTilesKernel()
         }
     }
 
+    /*
+    color.x = glm::pow(color.x, 2.2f);
+    color.y = glm::pow(color.y, 2.2f);
+    color.z = glm::pow(color.z, 2.2f);
+    */
+
     uchar4 quantizedColor;
     quantizedColor.x = color.x * 255;
     quantizedColor.y = color.y * 255;
@@ -862,9 +1021,9 @@ __global__ void rasterizeTilesKernel()
 void rasterizeTile(CudaTimer& timer)
 {
     // We dispatch one block per tile, one thread per pixel within the tile.
-    constexpr int32_t threadPerBlock = k_TileSize * k_TileSize;
-    const auto dimBlock = dim3(threadPerBlock);
-    const auto dimGrid = dim3(k_TotalTiles);
+    constexpr int32_t threadPerBlock{k_TileSize * k_TileSize};
+    const auto dimBlock{dim3(threadPerBlock)};
+    const auto dimGrid{dim3(k_TotalTiles)};
 
     timer.start();
     rasterizeTilesKernel<<<dimGrid, dimBlock>>>();
