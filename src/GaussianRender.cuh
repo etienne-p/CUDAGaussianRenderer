@@ -56,21 +56,22 @@ __device__ __host__ struct Ellipse
 __device__ __host__ struct GlobalArgs
 {
     CameraData cameraData;
-    float4* position;
-    float4* scaleAndRotation;
-    float4* color;
+    float4* positions;
+    float4* scales;
+    float4* rotations;
+    float4* colors;
     int sphericalHarmonicsDegree;
     int sphericalHarmonicsCount;
     float* sphericalHarmonics;
     // Xy and Z stored separately as they are consumed by different kernels.
-    float2* positionClipSpaceXY;
-    float* positionClipSpaceZ;
+    float2* positionsClipSpaceXY;
+    float* positionsClipSpaceZ;
     // Pack conic and color as both are consumed by the rasterization kernel.
-    float4* conic;
-    float4* screenEllipse;
-    int32_t splatCount;
+    float4* conics;
+    float4* screenEllipses;
+    int32_t primitiveCount;
     uchar4* backBuffer;
-    int32_t* tileRange;
+    int32_t* tileRanges;
 };
 
 // Distinct from GlobalArgs since it needs multiple updates over the frame.

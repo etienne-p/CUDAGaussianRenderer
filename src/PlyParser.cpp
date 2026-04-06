@@ -152,22 +152,11 @@ int indexOf(const std::vector<std::string>& properties, const std::string& prope
     return std::distance(properties.begin(), it);
 }
 
-uint32_t encodeVec4(const glm::vec4& v)
-{
-    auto clamped = glm::clamp(v);
-    // clang-format off
-    return (
-        ((uint32_t) (clamped.x * 255.0f) << 24u) | 
-        ((uint32_t) (clamped.y * 255.0f) << 16u) | 
-        ((uint32_t) (clamped.z * 255.0f) << 8u ) | 
-        ((uint32_t) (clamped.w * 255.0f)       ));
-    // clang-format on
-}
-
 int parsePly(const char* filePath,
-             std::vector<float4>& position,
-             std::vector<float4>& scaleAndRotation,
-             std::vector<float4>& color,
+             std::vector<float4>& positions,
+             std::vector<float4>& scales,
+             std::vector<float4>& rotations,
+             std::vector<float4>& colors,
              std::vector<float>& sphericalHarmonics,
              int& sphericalHarmonicsDegree,
              int& sphericalHarmonicsCount,
@@ -196,9 +185,10 @@ int parsePly(const char* filePath,
     offsets[13] = indexOf(properties, "opacity");
 
     // Allocate result memory.
-    position.resize(vertexCount);
-    scaleAndRotation.resize(vertexCount);
-    color.resize(vertexCount);
+    positions.resize(vertexCount);
+    scales.resize(vertexCount);
+    rotations.resize(vertexCount);
+    colors.resize(vertexCount);
 
     // Handle extra spherical harmonics.
     auto extraSphericalHarmonicsCount{0};
@@ -326,13 +316,11 @@ int parsePly(const char* filePath,
         const float SH_C0{0.28209479177387814f};
         auto rgb = sphericalHarmonics * SH_C0 + 0.5f;
 
-        // Quantize rotation.
-        auto quantizedRotation = encodeVec4((glm::vec4(rotation.x, rotation.y, rotation.z, rotation.w) + 1.0f) * 0.5f);
-
         // Bundle opacity with position. Comes in handy when evaluating spherical harmonics.
-        position[i] = float4{translation.x, translation.y, translation.z, opacity};
-        scaleAndRotation[i] = float4{scale.x, scale.y, scale.z, reinterpret_cast<float&>(quantizedRotation)};
-        color[i] = float4{rgb.x, rgb.y, rgb.z, opacity};
+        positions[i] = float4{translation.x, translation.y, translation.z, opacity};
+        scales[i] = float4{scale.x, scale.y, scale.z, 0.f};
+        rotations[i] = float4{rotation.x, rotation.y, rotation.z, rotation.w};
+        colors[i] = float4{rgb.x, rgb.y, rgb.z, opacity};
     }
 
     return vertexCount;

@@ -8,12 +8,11 @@
 #include <glm/gtx/quaternion.hpp>
 #include <vector_types.h>
 
-uint32_t encodeVec4(const glm::vec4& v);
-
 int parsePly(const char* filePath,
-             std::vector<float4>& position,
-             std::vector<float4>& scaleAndRotation,
-             std::vector<float4>& color,
+             std::vector<float4>& positions,
+             std::vector<float4>& scales,
+             std::vector<float4>& rotations,
+             std::vector<float4>& colors,
              std::vector<float>& sphericalHarmonics,
              int& sphericalHarmonicsDegree,
              int& sphericalHarmonicsCount,

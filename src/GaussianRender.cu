@@ -158,9 +158,9 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
 __global__ void evaluateSphericalHarmonicsKernel()
 {
     auto index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < g_GlobalArgs.splatCount)
+    if (index < g_GlobalArgs.primitiveCount)
     {
-        auto positionData = loadReadOnly(&g_GlobalArgs.position[index]);
+        auto positionData = loadReadOnly(&g_GlobalArgs.positions[index]);
 
         auto splatPosition = glm::vec3(positionData.x, positionData.y, positionData.z);
 
@@ -177,7 +177,7 @@ __global__ void evaluateSphericalHarmonicsKernel()
         auto shColor = sphericalHarmonics(
             g_GlobalArgs.sphericalHarmonicsDegree, rayDir, &g_GlobalArgs.sphericalHarmonics[shIdx], blockDim.x);
 
-        g_GlobalArgs.color[index] = float4{shColor.x, shColor.y, shColor.z, opacity};
+        g_GlobalArgs.colors[index] = float4{shColor.x, shColor.y, shColor.z, opacity};
     }
 }
 
@@ -204,21 +204,21 @@ void evaluateSphericalHarmonics(CudaTimer& timer, int32_t count)
 __global__ void evaluateSplatClipDataKernel()
 {
     auto index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < g_GlobalArgs.splatCount)
+    if (index < g_GlobalArgs.primitiveCount)
     {
-        auto positionData = loadReadOnly(&g_GlobalArgs.position[index]);
-        auto scaleAndRotationData = loadReadOnly(&g_GlobalArgs.scaleAndRotation[index]);
+        auto positionData = loadReadOnly(&g_GlobalArgs.positions[index]);
+        auto scaleData = loadReadOnly(&g_GlobalArgs.scales[index]);
+        auto rotationData = loadReadOnly(&g_GlobalArgs.rotations[index]);
 
         auto position = glm::vec3(positionData.x, positionData.y, positionData.z);
 
         // Evaluate covariance.
         auto scale3x3 = glm::mat3(0);
-        scale3x3[0][0] = scaleAndRotationData.x;
-        scale3x3[1][1] = scaleAndRotationData.y;
-        scale3x3[2][2] = scaleAndRotationData.z;
+        scale3x3[0][0] = scaleData.x;
+        scale3x3[1][1] = scaleData.y;
+        scale3x3[2][2] = scaleData.z;
 
-        auto rotationValue = decodeVec4(reinterpret_cast<uint32_t&>(scaleAndRotationData.w)) * 2.0f - 1.0f;
-        auto rotation = glm::quat::wxyz(rotationValue.w, rotationValue.x, rotationValue.y, rotationValue.z);
+        auto rotation = glm::quat::wxyz(rotationData.w, rotationData.x, rotationData.y, rotationData.z);
 
         auto RS = glm::mat3_cast(rotation) * scale3x3;
         auto splatCovariance = RS * glm::transpose(RS);
@@ -321,10 +321,10 @@ __global__ void evaluateSplatClipDataKernel()
         extent *= isVisible;
 
         // Global writes.
-        g_GlobalArgs.positionClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
-        g_GlobalArgs.positionClipSpaceZ[index] = clipPosition.z;
-        g_GlobalArgs.screenEllipse[index] = float4{glm::cos(angle), glm::sin(angle), extent.x, extent.y};
-        g_GlobalArgs.conic[index] = float4{conic.x, conic.y, conic.z, 0.0f};
+        g_GlobalArgs.positionsClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
+        g_GlobalArgs.positionsClipSpaceZ[index] = clipPosition.z;
+        g_GlobalArgs.screenEllipses[index] = float4{glm::cos(angle), glm::sin(angle), extent.x, extent.y};
+        g_GlobalArgs.conics[index] = float4{conic.x, conic.y, conic.z, 0.0f};
     }
 }
 
@@ -496,8 +496,8 @@ __global__ void buildTileListKernel()
         if (threadIdx.x == 0)
         {
             auto splatCounter = atomicAdd(&g_SplatCounter, k_WarpSize);
-            s_SplatStartIndex = glm::min(splatCounter, g_GlobalArgs.splatCount);
-            auto splatEndIndex = glm::min(splatCounter + k_WarpSize, g_GlobalArgs.splatCount);
+            s_SplatStartIndex = glm::min(splatCounter, g_GlobalArgs.primitiveCount);
+            auto splatEndIndex = glm::min(splatCounter + k_WarpSize, g_GlobalArgs.primitiveCount);
             s_SplatCount = splatEndIndex - s_SplatStartIndex;
             s_ExpandedTileCount = 0;
             s_CumulatedExpandedTileCount = 0;
@@ -523,8 +523,8 @@ __global__ void buildTileListKernel()
             {
                 // Read current splat data. The one this thread is responsible for.
                 auto srcIndex = s_SplatStartIndex + threadIdx.x;
-                auto positionClipSpaceXYData = loadReadOnly(&g_GlobalArgs.positionClipSpaceXY[srcIndex]);
-                auto ellipseData = loadReadOnly(&g_GlobalArgs.screenEllipse[srcIndex]);
+                auto positionClipSpaceXYData = loadReadOnly(&g_GlobalArgs.positionsClipSpaceXY[srcIndex]);
+                auto ellipseData = loadReadOnly(&g_GlobalArgs.screenEllipses[srcIndex]);
 
                 auto ellipse = Ellipse();
                 ellipse.center = glm::vec2(positionClipSpaceXYData.x, positionClipSpaceXYData.y);
@@ -551,7 +551,7 @@ __global__ void buildTileListKernel()
                 tileCount = glm::max(0, tilesRect.z * tilesRect.w);
 
                 // Store shared data.
-                s_Depths[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionClipSpaceZ[srcIndex]);
+                s_Depths[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionsClipSpaceZ[srcIndex]);
                 s_TilesRects[threadIdx.x] = int4{tilesRect.x, tilesRect.y, tilesRect.z, tilesRect.w};
                 s_ScreenEllipse[threadIdx.x] = ellipseData;
                 s_PositionClipSpaceXY[threadIdx.x] = positionClipSpaceXYData;
@@ -863,11 +863,11 @@ __global__ void evaluateTileRangesKernel()
     {
         auto firstKey = loadReadOnly(&g_TileListArgs.keys[0]);
         auto firstTileIndex = firstKey >> 32;
-        g_GlobalArgs.tileRange[firstTileIndex * 2] = 0;
+        g_GlobalArgs.tileRanges[firstTileIndex * 2] = 0;
 
         auto lastKey = loadReadOnly(&g_TileListArgs.keys[g_TileListArgs.size - 1]);
         auto lastTileIndex = lastKey >> 32;
-        g_GlobalArgs.tileRange[lastTileIndex * 2 + 1] = g_TileListArgs.size;
+        g_GlobalArgs.tileRanges[lastTileIndex * 2 + 1] = g_TileListArgs.size;
     }
     else if (index < g_TileListArgs.size)
     {
@@ -881,8 +881,8 @@ __global__ void evaluateTileRangesKernel()
         // update the end of the previous range and the start of the current one.
         if (tileIndex != prevTileIndex)
         {
-            g_GlobalArgs.tileRange[prevTileIndex * 2 + 1] = index;
-            g_GlobalArgs.tileRange[tileIndex * 2] = index;
+            g_GlobalArgs.tileRanges[prevTileIndex * 2 + 1] = index;
+            g_GlobalArgs.tileRanges[tileIndex * 2] = index;
         }
     }
 }
@@ -917,8 +917,8 @@ __global__ void rasterizeTilesKernel()
     if (threadIdx.x == 0)
     {
         // Block Id corresponds to the tile.
-        s_FirstSplatIndex = loadReadOnly(&g_GlobalArgs.tileRange[blockIdx.x * 2]);
-        auto endSplatIndex = loadReadOnly(&g_GlobalArgs.tileRange[blockIdx.x * 2 + 1]);
+        s_FirstSplatIndex = loadReadOnly(&g_GlobalArgs.tileRanges[blockIdx.x * 2]);
+        auto endSplatIndex = loadReadOnly(&g_GlobalArgs.tileRanges[blockIdx.x * 2 + 1]);
         s_SplatsCount = endSplatIndex - s_FirstSplatIndex;
     }
 
@@ -955,9 +955,9 @@ __global__ void rasterizeTilesKernel()
         if (threadIdx.x < splatsCount)
         {
             auto srcIndex = g_TileListArgs.values[s_FirstSplatIndex + threadIdx.x];
-            s_Centers[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionClipSpaceXY[srcIndex]);
-            auto conicData = loadReadOnly(&g_GlobalArgs.conic[srcIndex]);
-            auto colorData = loadReadOnly(&g_GlobalArgs.color[srcIndex]);
+            s_Centers[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionsClipSpaceXY[srcIndex]);
+            auto conicData = loadReadOnly(&g_GlobalArgs.conics[srcIndex]);
+            auto colorData = loadReadOnly(&g_GlobalArgs.colors[srcIndex]);
             s_Colors[threadIdx.x] = float4{colorData.x, colorData.y, colorData.z, colorData.w};
             s_Conics[threadIdx.x] = float4{conicData.x, conicData.y, conicData.z, 0.0f};
         }

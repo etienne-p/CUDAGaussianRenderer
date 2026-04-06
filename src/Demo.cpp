@@ -16,11 +16,9 @@ GLFWwindow* window;
 #include "PlyParser.h"
 #include "CameraControls.h"
 
-#define STRINGIFY(A) #A
-
 // clang-format off
 // Shaders used to display the texture on screen.
-const char* vertexShaderTextured = STRINGIFY(
+const char* vertexShaderTextured = R"(
     #version 330 core \n
     layout(location = 0) in vec3 vertexPosition_modelspace; \n 
     layout(location = 1) in vec2 vertexUv; \n 
@@ -30,9 +28,9 @@ const char* vertexShaderTextured = STRINGIFY(
         gl_Position = vec4(vertexPosition_modelspace, 1); \n
         uv = vertexUv; \n
     } \n
-);
+)";
 
-const char* fragmentShaderTextured = STRINGIFY(
+const char* fragmentShaderTextured = R"(
     #version 330 core \n
     in vec2 uv; \n 
     out vec4 color; \n 
@@ -41,7 +39,7 @@ const char* fragmentShaderTextured = STRINGIFY(
     { \n 
         color = texture(textureSampler, uv).rgba; \n
     } \n
-);
+)";
 // clang-format on
 
 GLuint compileShadersProgram(const char* vertexShader, const char* fragmentShader)
@@ -117,28 +115,29 @@ float4 glmToBuiltin4(const glm::vec4& v)
 // TODO: Add color buffer.
 // Used to generate random test splats.
 void generateRandomGaussians(
-    std::vector<float4>& position,
-    std::vector<float4>& scaleAndRotation,
-    std::vector<float4>& color,
-    const float minScale,
-    const float maxScale,
-    const glm::vec4& minPosition,
-    const glm::vec4& maxPosition)
+    std::vector<float4>& positions,
+    std::vector<float4>& scales,
+    std::vector<float4>& rotations,
+    std::vector<float4>& colors,
+    const float scaleMin,
+    const float scaleMax,
+    const glm::vec4& boundsMin,
+    const glm::vec4& boundsMax)
 {
-    for (auto i = 0; i != position.size(); ++i)
+    for (auto i = 0; i != positions.size(); ++i)
     {
-        auto translation = glm::linearRand(minPosition, maxPosition);
+        auto translation = glm::linearRand(boundsMin, boundsMax);
         auto rotAxis = glm::sphericalRand(1.0f);
         auto rotAngle = glm::linearRand(0.0f, glm::pi<float>());
         auto rotation = glm::angleAxis(rotAngle, rotAxis);
-        auto scale = glm::linearRand(glm::vec3(minScale, minScale, minScale), glm::vec3(maxScale, maxScale, maxScale));
+        auto scale = glm::linearRand(glm::vec3(scaleMin, scaleMin, scaleMin), glm::vec3(scaleMax, scaleMax, scaleMax));
 
         auto col = glm::linearRand(glm::vec4(0), glm::vec4(1));
-        auto quantizedRotation = encodeVec4((glm::vec4(rotation.x, rotation.y, rotation.z, rotation.w) + 1.0f) * 0.5f);
 
-        position[i] = float4{translation.x, translation.y, translation.z, 1.0f};
-        scaleAndRotation[i] = float4{scale.x, scale.y, scale.z, reinterpret_cast<float&>(quantizedRotation)};
-        color[i] = float4{col.x, col.y, col.z, col.w};
+        positions[i] = float4{translation.x, translation.y, translation.z, 1.0f};
+        scales[i] = float4{scale.x, scale.y, scale.z, 0.f};
+        rotations[i] = float4{rotation.x, rotation.y, rotation.z, rotation.w};
+        colors[i] = float4{col.x, col.y, col.z, col.w};
     }
 }
 
@@ -253,32 +252,35 @@ int main(int argc, char* argv[])
     int sphericalHarmonicsDegree{0};
     int sphericalHarmonicsCount{0};
 
-#if false
+#if true
     // Use randomly generated splats. Useful for testing and debugging.
     constexpr int32_t splatCount = 1 << 4;
     constexpr auto worldBoundsExtent = 4.0f;
 
-    const auto minPosition = glm::vec4(-worldBoundsExtent, -worldBoundsExtent, -worldBoundsExtent, 1.0f);
-    const auto maxPosition = glm::vec4(worldBoundsExtent, worldBoundsExtent, worldBoundsExtent, 1.0f);
+    const auto boundsMin = glm::vec4(-worldBoundsExtent, -worldBoundsExtent, -worldBoundsExtent, 1.0f);
+    const auto boundsMax = glm::vec4(worldBoundsExtent, worldBoundsExtent, worldBoundsExtent, 1.0f);
 
-    auto position = std::vector<float4>(splatCount);
-    auto scaleAndRotation = std::vector<float4>(splatCount);
-    auto color = std::vector<float4>(splatCount);
-    generateRandomGaussians(position, scaleAndRotation, color, 0.01f, 0.5f, minPosition, maxPosition);
+    auto positions = std::vector<float4>(splatCount);
+    auto scales = std::vector<float4>(splatCount);
+    auto rotations = std::vector<float4>(splatCount);
+    auto colors = std::vector<float4>(splatCount);
+    generateRandomGaussians(positions, scales, rotations, colors, 0.01f, 0.5f, boundsMin, boundsMax);
 
     cameraControls.setBounds(glm::vec3(-worldBoundsExtent), glm::vec3(worldBoundsExtent));
 
 #else
     // Load splats from a .ply file.
-    std::vector<float4> position;
-    std::vector<float4> scaleAndRotation;
+    std::vector<float4> positions;
+    std::vector<float4> scales;
+    std::vector<float4> rotations;
     std::vector<float4> color;
     glm::vec3 boundsMin;
     glm::vec3 boundsMax;
     auto splatCount = parsePly(
         argv[1],
-        position,
-        scaleAndRotation,
+        positions,
+        scales,
+        rotations,
         color,
         sphericalHarmonics,
         sphericalHarmonicsDegree,
@@ -311,9 +313,10 @@ int main(int argc, char* argv[])
     auto glColorBuffer = GLBuffer<uchar4, GL_PIXEL_UNPACK_BUFFER>(k_ScreenSize * k_ScreenSize);
 
     // CUDA buffers.
-    auto positionBuffer = DeviceBuffer<float4>(position);
-    auto scaleAndRotationBuffer = DeviceBuffer<float4>(scaleAndRotation);
-    auto colorBuffer = DeviceBuffer<float4>(color);
+    auto positionBuffer = DeviceBuffer<float4>(positions);
+    auto scalesBuffer = DeviceBuffer<float4>(scales);
+    auto rotationsBuffer = DeviceBuffer<float4>(rotations);
+    auto colorBuffer = DeviceBuffer<float4>(colors);
     auto sphericalHarmonicsBuffer = DeviceBuffer<float>(sphericalHarmonics);
     auto conicAndColorBuffer = DeviceBuffer<float4>(splatCount);
     auto positionClipSpaceXYBuffer = DeviceBuffer<float2>(splatCount);
@@ -404,18 +407,19 @@ int main(int argc, char* argv[])
 
             // Set global data.
             GlobalArgs globalArgs;
-            globalArgs.splatCount = splatCount;
-            globalArgs.positionClipSpaceXY = positionClipSpaceXYBuffer.getPtr();
-            globalArgs.positionClipSpaceZ = positionClipSpaceZBuffer.getPtr();
+            globalArgs.primitiveCount = splatCount;
+            globalArgs.positionsClipSpaceXY = positionClipSpaceXYBuffer.getPtr();
+            globalArgs.positionsClipSpaceZ = positionClipSpaceZBuffer.getPtr();
             globalArgs.sphericalHarmonicsDegree = sphericalHarmonicsDegree;
             globalArgs.sphericalHarmonicsCount = sphericalHarmonicsCount;
             globalArgs.sphericalHarmonics = sphericalHarmonicsBuffer.getPtr();
-            globalArgs.screenEllipse = screenEllipseBuffer.getPtr();
-            globalArgs.position = positionBuffer.getPtr();
-            globalArgs.scaleAndRotation = scaleAndRotationBuffer.getPtr();
-            globalArgs.color = colorBuffer.getPtr();
-            globalArgs.conic = conicAndColorBuffer.getPtr();
-            globalArgs.tileRange = tileRangeBuffer.getPtr();
+            globalArgs.screenEllipses = screenEllipseBuffer.getPtr();
+            globalArgs.positions = positionBuffer.getPtr();
+            globalArgs.scales = scalesBuffer.getPtr();
+            globalArgs.rotations = rotationsBuffer.getPtr();
+            globalArgs.colors = colorBuffer.getPtr();
+            globalArgs.conics = conicAndColorBuffer.getPtr();
+            globalArgs.tileRanges = tileRangeBuffer.getPtr();
             globalArgs.backBuffer = colorBinding.getPtr();
             globalArgs.cameraData = cameraData;
 
