@@ -1,5 +1,16 @@
+## Current
 
-## CURRENT
+### Changed
+
+* Switched to Google naming convention.
+
+* Upgraded CMakeLists.txt files (min version 3.18).
+
+### Removed
+
+* Rotation compression, no worthy gains and may hamper future bindings.
+
+## 2025-12-18
 
 ### Added
 
