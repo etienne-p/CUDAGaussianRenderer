@@ -11,55 +11,56 @@
 // Load via the read-only data cache.
 // Applicable to global data that will only be read by the kernel.
 template <typename T>
-__device__ T loadReadOnly(T* ptr)
+__device__ T LoadReadOnly(T* ptr)
 {
     return __ldg(reinterpret_cast<const T*>(ptr));
 }
 
 // Conversion between builtin CUDA types and glm:: types.
-__device__ __host__ __forceinline__ glm::vec2 builtinToGlmVec2(const float2 v)
+__device__ __host__ __forceinline__ glm::vec2 BuiltinToGlmVec2(const float2 v)
 {
     return glm::vec2(v.x, v.y);
 }
 
-__device__ __host__ __forceinline__ glm::vec4 builtinToGlmVec4(const float4 v)
+__device__ __host__ __forceinline__ glm::vec4 BuiltinToGlmVec4(const float4 v)
 {
     return glm::vec4(v.x, v.y, v.z, v.w);
 }
 
-__device__ __host__ __forceinline__ glm::ivec4 builtinToGlmVec4i(const int4 v)
+__device__ __host__ __forceinline__ glm::ivec4 BuiltinToGlmVec4i(const int4 v)
 {
     return glm::ivec4(v.x, v.y, v.z, v.w);
 }
 
 // Global counters.
 // Used to track processed splats when building the tiles list.
-__device__ __managed__ int32_t g_SplatCounter;
+__device__ __managed__ int32_t g_splat_counter;
 // Used to track the size of the tiles list.
-__device__ __managed__ int32_t g_TileCounter;
+__device__ __managed__ int32_t g_tile_counter;
 
 // Structs holding pointers to global memory and related sizes & capacities.
-__constant__ GlobalArgs g_GlobalArgs;
-__constant__ TileListArgs g_TileListArgs;
+__constant__ GlobalArgs g_global_args;
+__constant__ TileListArgs g_tile_list_args;
 
-void setGlobalArgs(GlobalArgs* globalArgs)
+void SetGlobalArgs(GlobalArgs* globalArgs)
 {
-    checkCudaErrors(cudaMemcpyToSymbol(g_GlobalArgs, globalArgs, sizeof(GlobalArgs), 0, cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERRORS(cudaMemcpyToSymbol(g_global_args, globalArgs, sizeof(GlobalArgs), 0, cudaMemcpyHostToDevice));
 }
 
-void setTileListArgs(TileListArgs* tileListArgs)
+void SetTileListArgs(TileListArgs* tileListArgs)
 {
-    checkCudaErrors(cudaMemcpyToSymbol(g_TileListArgs, tileListArgs, sizeof(TileListArgs), 0, cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERRORS(
+        cudaMemcpyToSymbol(g_tile_list_args, tileListArgs, sizeof(TileListArgs), 0, cudaMemcpyHostToDevice));
 }
 
-__device__ glm::vec4 decodeVec4(uint32_t v)
+__device__ glm::vec4 DecodeVec4(uint32_t v)
 {
     return glm::vec4((v >> 24u) & 0xFF, (v >> 16u) & 0xFF, (v >> 8u) & 0xFF, v & 0xFF) / 255.0f;
 }
 
 // ! Code generated using the sh_gen.py python script. !
 // clang-format off
-__device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const float* sh, const int stride)
+__device__ glm::vec3 EvalSphericalHarmonics(const int l, const glm::vec3& dir, const float* sh, const int stride)
 {
     const auto x = dir.x;
     const auto y = dir.y;
@@ -67,7 +68,7 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
     auto result = glm::vec3(0.0f);
 
     // Level 0.
-    auto sh0 = glm::vec3(loadReadOnly(&sh[0 * stride]), loadReadOnly(&sh[1 * stride]), loadReadOnly(&sh[2 * stride]));
+    auto sh0 = glm::vec3(LoadReadOnly(&sh[0 * stride]), LoadReadOnly(&sh[1 * stride]), LoadReadOnly(&sh[2 * stride]));
 
     result +=
         (0.282094792F) * sh0;
@@ -75,9 +76,9 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
     // Level 1.
     if (l > 0)
     {
-        auto sh1 = glm::vec3(loadReadOnly(&sh[3 * stride]), loadReadOnly(&sh[4 * stride]), loadReadOnly(&sh[5 * stride]));
-        auto sh2 = glm::vec3(loadReadOnly(&sh[6 * stride]), loadReadOnly(&sh[7 * stride]), loadReadOnly(&sh[8 * stride]));
-        auto sh3 = glm::vec3(loadReadOnly(&sh[9 * stride]), loadReadOnly(&sh[10 * stride]), loadReadOnly(&sh[11 * stride]));
+        auto sh1 = glm::vec3(LoadReadOnly(&sh[3 * stride]), LoadReadOnly(&sh[4 * stride]), LoadReadOnly(&sh[5 * stride]));
+        auto sh2 = glm::vec3(LoadReadOnly(&sh[6 * stride]), LoadReadOnly(&sh[7 * stride]), LoadReadOnly(&sh[8 * stride]));
+        auto sh3 = glm::vec3(LoadReadOnly(&sh[9 * stride]), LoadReadOnly(&sh[10 * stride]), LoadReadOnly(&sh[11 * stride]));
 
         result +=
             (0.488602512F*y) * sh1 +
@@ -91,11 +92,11 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
             auto yy = y * y;
             auto zz = z * z;
 
-            auto sh4 = glm::vec3(loadReadOnly(&sh[12 * stride]), loadReadOnly(&sh[13 * stride]), loadReadOnly(&sh[14 * stride]));
-            auto sh5 = glm::vec3(loadReadOnly(&sh[15 * stride]), loadReadOnly(&sh[16 * stride]), loadReadOnly(&sh[17 * stride]));
-            auto sh6 = glm::vec3(loadReadOnly(&sh[18 * stride]), loadReadOnly(&sh[19 * stride]), loadReadOnly(&sh[20 * stride]));
-            auto sh7 = glm::vec3(loadReadOnly(&sh[21 * stride]), loadReadOnly(&sh[22 * stride]), loadReadOnly(&sh[23 * stride]));
-            auto sh8 = glm::vec3(loadReadOnly(&sh[24 * stride]), loadReadOnly(&sh[25 * stride]), loadReadOnly(&sh[26 * stride]));
+            auto sh4 = glm::vec3(LoadReadOnly(&sh[12 * stride]), LoadReadOnly(&sh[13 * stride]), LoadReadOnly(&sh[14 * stride]));
+            auto sh5 = glm::vec3(LoadReadOnly(&sh[15 * stride]), LoadReadOnly(&sh[16 * stride]), LoadReadOnly(&sh[17 * stride]));
+            auto sh6 = glm::vec3(LoadReadOnly(&sh[18 * stride]), LoadReadOnly(&sh[19 * stride]), LoadReadOnly(&sh[20 * stride]));
+            auto sh7 = glm::vec3(LoadReadOnly(&sh[21 * stride]), LoadReadOnly(&sh[22 * stride]), LoadReadOnly(&sh[23 * stride]));
+            auto sh8 = glm::vec3(LoadReadOnly(&sh[24 * stride]), LoadReadOnly(&sh[25 * stride]), LoadReadOnly(&sh[26 * stride]));
 
             result +=
                 (1.09254843F*x*y) * sh4 +
@@ -107,13 +108,13 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
             // Level 3.
             if (l > 2)
             {
-                auto sh9 = glm::vec3(loadReadOnly(&sh[27 * stride]), loadReadOnly(&sh[28 * stride]), loadReadOnly(&sh[29 * stride]));
-                auto sh10 = glm::vec3(loadReadOnly(&sh[30 * stride]), loadReadOnly(&sh[31 * stride]), loadReadOnly(&sh[32 * stride]));
-                auto sh11 = glm::vec3(loadReadOnly(&sh[33 * stride]), loadReadOnly(&sh[34 * stride]), loadReadOnly(&sh[35 * stride]));
-                auto sh12 = glm::vec3(loadReadOnly(&sh[36 * stride]), loadReadOnly(&sh[37 * stride]), loadReadOnly(&sh[38 * stride]));
-                auto sh13 = glm::vec3(loadReadOnly(&sh[39 * stride]), loadReadOnly(&sh[40 * stride]), loadReadOnly(&sh[41 * stride]));
-                auto sh14 = glm::vec3(loadReadOnly(&sh[42 * stride]), loadReadOnly(&sh[43 * stride]), loadReadOnly(&sh[44 * stride]));
-                auto sh15 = glm::vec3(loadReadOnly(&sh[45 * stride]), loadReadOnly(&sh[46 * stride]), loadReadOnly(&sh[47 * stride]));
+                auto sh9 = glm::vec3(LoadReadOnly(&sh[27 * stride]), LoadReadOnly(&sh[28 * stride]), LoadReadOnly(&sh[29 * stride]));
+                auto sh10 = glm::vec3(LoadReadOnly(&sh[30 * stride]), LoadReadOnly(&sh[31 * stride]), LoadReadOnly(&sh[32 * stride]));
+                auto sh11 = glm::vec3(LoadReadOnly(&sh[33 * stride]), LoadReadOnly(&sh[34 * stride]), LoadReadOnly(&sh[35 * stride]));
+                auto sh12 = glm::vec3(LoadReadOnly(&sh[36 * stride]), LoadReadOnly(&sh[37 * stride]), LoadReadOnly(&sh[38 * stride]));
+                auto sh13 = glm::vec3(LoadReadOnly(&sh[39 * stride]), LoadReadOnly(&sh[40 * stride]), LoadReadOnly(&sh[41 * stride]));
+                auto sh14 = glm::vec3(LoadReadOnly(&sh[42 * stride]), LoadReadOnly(&sh[43 * stride]), LoadReadOnly(&sh[44 * stride]));
+                auto sh15 = glm::vec3(LoadReadOnly(&sh[45 * stride]), LoadReadOnly(&sh[46 * stride]), LoadReadOnly(&sh[47 * stride]));
 
                 result +=
                     (0.295021795F*y*(6.0F*xx - 2.0F*yy)) * sh9 +
@@ -127,15 +128,15 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
                 // Level 4.
                 if (l > 3)
                 {
-                    auto sh16 = glm::vec3(loadReadOnly(&sh[48 * stride]), loadReadOnly(&sh[49 * stride]), loadReadOnly(&sh[50 * stride]));
-                    auto sh17 = glm::vec3(loadReadOnly(&sh[51 * stride]), loadReadOnly(&sh[52 * stride]), loadReadOnly(&sh[53 * stride]));
-                    auto sh18 = glm::vec3(loadReadOnly(&sh[54 * stride]), loadReadOnly(&sh[55 * stride]), loadReadOnly(&sh[56 * stride]));
-                    auto sh19 = glm::vec3(loadReadOnly(&sh[57 * stride]), loadReadOnly(&sh[58 * stride]), loadReadOnly(&sh[59 * stride]));
-                    auto sh20 = glm::vec3(loadReadOnly(&sh[60 * stride]), loadReadOnly(&sh[61 * stride]), loadReadOnly(&sh[62 * stride]));
-                    auto sh21 = glm::vec3(loadReadOnly(&sh[63 * stride]), loadReadOnly(&sh[64 * stride]), loadReadOnly(&sh[65 * stride]));
-                    auto sh22 = glm::vec3(loadReadOnly(&sh[66 * stride]), loadReadOnly(&sh[67 * stride]), loadReadOnly(&sh[68 * stride]));
-                    auto sh23 = glm::vec3(loadReadOnly(&sh[69 * stride]), loadReadOnly(&sh[70 * stride]), loadReadOnly(&sh[71 * stride]));
-                    auto sh24 = glm::vec3(loadReadOnly(&sh[72 * stride]), loadReadOnly(&sh[73 * stride]), loadReadOnly(&sh[74 * stride]));
+                    auto sh16 = glm::vec3(LoadReadOnly(&sh[48 * stride]), LoadReadOnly(&sh[49 * stride]), LoadReadOnly(&sh[50 * stride]));
+                    auto sh17 = glm::vec3(LoadReadOnly(&sh[51 * stride]), LoadReadOnly(&sh[52 * stride]), LoadReadOnly(&sh[53 * stride]));
+                    auto sh18 = glm::vec3(LoadReadOnly(&sh[54 * stride]), LoadReadOnly(&sh[55 * stride]), LoadReadOnly(&sh[56 * stride]));
+                    auto sh19 = glm::vec3(LoadReadOnly(&sh[57 * stride]), LoadReadOnly(&sh[58 * stride]), LoadReadOnly(&sh[59 * stride]));
+                    auto sh20 = glm::vec3(LoadReadOnly(&sh[60 * stride]), LoadReadOnly(&sh[61 * stride]), LoadReadOnly(&sh[62 * stride]));
+                    auto sh21 = glm::vec3(LoadReadOnly(&sh[63 * stride]), LoadReadOnly(&sh[64 * stride]), LoadReadOnly(&sh[65 * stride]));
+                    auto sh22 = glm::vec3(LoadReadOnly(&sh[66 * stride]), LoadReadOnly(&sh[67 * stride]), LoadReadOnly(&sh[68 * stride]));
+                    auto sh23 = glm::vec3(LoadReadOnly(&sh[69 * stride]), LoadReadOnly(&sh[70 * stride]), LoadReadOnly(&sh[71 * stride]));
+                    auto sh24 = glm::vec3(LoadReadOnly(&sh[72 * stride]), LoadReadOnly(&sh[73 * stride]), LoadReadOnly(&sh[74 * stride]));
 
                     result +=
                         (2.50334294F*x*y*(xx - yy)) * sh16 +
@@ -155,12 +156,12 @@ __device__ glm::vec3 sphericalHarmonics(const int l, const glm::vec3& dir, const
 }
 // clang-format on
 
-__global__ void evaluateSphericalHarmonicsKernel()
+__global__ void EvaluateSphericalHarmonicsKernel()
 {
     auto index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < g_GlobalArgs.primitiveCount)
+    if (index < g_global_args.primitiveCount)
     {
-        auto positionData = loadReadOnly(&g_GlobalArgs.positions[index]);
+        auto positionData = LoadReadOnly(&g_global_args.positions[index]);
 
         auto splatPosition = glm::vec3(positionData.x, positionData.y, positionData.z);
 
@@ -168,20 +169,20 @@ __global__ void evaluateSphericalHarmonicsKernel()
         auto opacity = positionData.w;
 
         // We align spherical harmonics using 4 floats for aligned access.
-        auto rayDir = glm::normalize(g_GlobalArgs.cameraData.position - splatPosition);
+        auto rayDir = glm::normalize(g_global_args.cameraData.position - splatPosition);
 
         // Each spherical harmonic is laid out contiguously for the threads of the group.
-        auto shIdx = blockIdx.x * blockDim.x * g_GlobalArgs.sphericalHarmonicsCount + threadIdx.x;
+        auto shIdx = blockIdx.x * blockDim.x * g_global_args.sphericalHarmonicsCount + threadIdx.x;
 
         // Note: stride is not useful with consecutive SH for each splat.
-        auto shColor = sphericalHarmonics(
-            g_GlobalArgs.sphericalHarmonicsDegree, rayDir, &g_GlobalArgs.sphericalHarmonics[shIdx], blockDim.x);
+        auto shColor = EvalSphericalHarmonics(
+            g_global_args.sphericalHarmonicsDegree, rayDir, &g_global_args.sphericalHarmonics[shIdx], blockDim.x);
 
-        g_GlobalArgs.colors[index] = float4{shColor.x, shColor.y, shColor.z, opacity};
+        g_global_args.colors[index] = float4{shColor.x, shColor.y, shColor.z, opacity};
     }
 }
 
-void evaluateSphericalHarmonics(CudaTimer& timer, int32_t count)
+void EvaluateSphericalHarmonics(CudaTimer& timer, int32_t count)
 {
     // Each block processes 256 splats.
     // Dispatch as many groups as required.
@@ -190,9 +191,9 @@ void evaluateSphericalHarmonics(CudaTimer& timer, int32_t count)
     const auto dimBlock{dim3(threadPerBlock)};
     const auto dimGrid{dim3(numBlocks)};
 
-    timer.start();
-    evaluateSphericalHarmonicsKernel<<<dimGrid, dimBlock>>>();
-    timer.stop();
+    timer.Start();
+    EvaluateSphericalHarmonicsKernel<<<dimGrid, dimBlock>>>();
+    timer.Stop();
 
     if (cudaGetLastError() != cudaSuccess)
     {
@@ -201,14 +202,14 @@ void evaluateSphericalHarmonics(CudaTimer& timer, int32_t count)
 }
 
 // Infer clip space data from world space data for each splat.
-__global__ void evaluateSplatClipDataKernel()
+__global__ void EvaluateSplatClipDataKernel()
 {
     auto index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < g_GlobalArgs.primitiveCount)
+    if (index < g_global_args.primitiveCount)
     {
-        auto positionData = loadReadOnly(&g_GlobalArgs.positions[index]);
-        auto scaleData = loadReadOnly(&g_GlobalArgs.scales[index]);
-        auto rotationData = loadReadOnly(&g_GlobalArgs.rotations[index]);
+        auto positionData = LoadReadOnly(&g_global_args.positions[index]);
+        auto scaleData = LoadReadOnly(&g_global_args.scales[index]);
+        auto rotationData = LoadReadOnly(&g_global_args.rotations[index]);
 
         auto position = glm::vec3(positionData.x, positionData.y, positionData.z);
 
@@ -224,12 +225,12 @@ __global__ void evaluateSplatClipDataKernel()
         auto splatCovariance = RS * glm::transpose(RS);
 
         // Centroid of the gaussian in view space.
-        auto viewPosition = (glm::vec3)(g_GlobalArgs.cameraData.view * glm::vec4(position, 1));
+        auto viewPosition = (glm::vec3)(g_global_args.cameraData.view * glm::vec4(position, 1));
         // We precompute camera related variables such as cotangents and Z parameters.
-        auto fovCotangent = g_GlobalArgs.cameraData.fovCotangent;
+        auto fovCotangent = g_global_args.cameraData.fovCotangent;
         // We map the Z axis linearly, similarly to an orthographic projection.
         // This gives us better depth precision for sorting tiles later.
-        auto depthScaleBias = g_GlobalArgs.cameraData.depthScaleBias;
+        auto depthScaleBias = g_global_args.cameraData.depthScaleBias;
 
         // Para-perspective, affine approximation of the projection matrix.
         // Includes a basis change (identity with scale X and Y negated).
@@ -259,7 +260,7 @@ __global__ void evaluateSplatClipDataKernel()
         affineProjection[3][2] = depthScaleBias.y;
 
         // Note that translation is dropped.
-        auto viewProjection = (glm::mat3) affineProjection * (glm::mat3) g_GlobalArgs.cameraData.view;
+        auto viewProjection = (glm::mat3) affineProjection * (glm::mat3) g_global_args.cameraData.view;
         // Evaluate covariance in clip space.
         auto clipCovariance = viewProjection * glm::transpose(splatCovariance) * glm::transpose(viewProjection);
         auto clipPosition = (glm::vec3)(affineProjection * glm::vec4(viewPosition, 1));
@@ -268,12 +269,12 @@ __global__ void evaluateSplatClipDataKernel()
         // So that each splat at least cover a pixel.
         // Otherwise splats would disappear as they move away from the camera.
         // Too small for being hit by texel rays during rasterization.
-        constexpr float k_Pi{3.14159265359};
-        constexpr float k_TexelSizeClip{2.0f / (float) k_ScreenSize};
+        constexpr float kPi{3.14159265359};
+        constexpr float kTexelSizeClip{2.0f / (float) kScreenSize};
         // Note: ellipse area is Pi * sqrt(det(cov)).
-        constexpr float k_TraceBump{(1.0f / k_Pi) * k_TexelSizeClip * k_TexelSizeClip};
-        clipCovariance[0][0] += k_TraceBump;
-        clipCovariance[1][1] += k_TraceBump;
+        constexpr float kTraceBump{(1.0f / kPi) * kTexelSizeClip * kTexelSizeClip};
+        clipCovariance[0][0] += kTraceBump;
+        clipCovariance[1][1] += kTraceBump;
         // Evaluate the eigen decomposition of the 2D covariance matrix to obtain
         // an oriented bounding rectangle for the splat.
         auto det = clipCovariance[0][0] * clipCovariance[1][1] - clipCovariance[1][0] * clipCovariance[1][0];
@@ -289,7 +290,8 @@ __global__ void evaluateSplatClipDataKernel()
 
         auto eigenVector0 = glm::normalize(glm::vec2(clipCovariance[1][0], lambda0 - clipCovariance[0][0]));
         // Note that we use camera aspect to straighten the rectangle, aka obtain perpendicular vectors.
-        auto eigenVector1 = glm::normalize(glm::vec2(eigenVector0.y / g_GlobalArgs.cameraData.aspect, -eigenVector0.x));
+        auto eigenVector1 =
+            glm::normalize(glm::vec2(eigenVector0.y / g_global_args.cameraData.aspect, -eigenVector0.x));
 
         // From eigenvectors to bounding ellipse.
         auto angle = glm::atan(eigenVector0.y, eigenVector0.x);
@@ -321,14 +323,14 @@ __global__ void evaluateSplatClipDataKernel()
         extent *= isVisible;
 
         // Global writes.
-        g_GlobalArgs.positionsClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
-        g_GlobalArgs.positionsClipSpaceZ[index] = clipPosition.z;
-        g_GlobalArgs.screenEllipses[index] = float4{glm::cos(angle), glm::sin(angle), extent.x, extent.y};
-        g_GlobalArgs.conics[index] = float4{conic.x, conic.y, conic.z, 0.0f};
+        g_global_args.positionsClipSpaceXY[index] = float2{clipPosition.x, clipPosition.y};
+        g_global_args.positionsClipSpaceZ[index] = clipPosition.z;
+        g_global_args.screenEllipses[index] = float4{glm::cos(angle), glm::sin(angle), extent.x, extent.y};
+        g_global_args.conics[index] = float4{conic.x, conic.y, conic.z, 0.0f};
     }
 }
 
-void evaluateSplatClipData(CudaTimer& timer, int32_t count)
+void EvaluateSplatClipData(CudaTimer& timer, int32_t count)
 {
     // Each block processes 256 splats.
     // Dispatch as many groups as required.
@@ -337,9 +339,9 @@ void evaluateSplatClipData(CudaTimer& timer, int32_t count)
     const auto dimBlock{dim3(threadPerBlock)};
     const auto dimGrid{dim3(numBlocks)};
 
-    timer.start();
-    evaluateSplatClipDataKernel<<<dimGrid, dimBlock>>>();
-    timer.stop();
+    timer.Start();
+    EvaluateSplatClipDataKernel<<<dimGrid, dimBlock>>>();
+    timer.Stop();
 
     if (cudaGetLastError() != cudaSuccess)
     {
@@ -348,7 +350,7 @@ void evaluateSplatClipData(CudaTimer& timer, int32_t count)
 }
 
 // Convert a point to ellipse local coordinates.
-__device__ __forceinline__ glm::vec2 convertToEllipseCoordinates(const Ellipse& ellipse, const glm::vec2& point)
+__device__ __forceinline__ glm::vec2 ConvertToEllipseCoordinates(const Ellipse& ellipse, const glm::vec2& point)
 {
     // First handle translation.
     auto delta = point - ellipse.center;
@@ -358,7 +360,7 @@ __device__ __forceinline__ glm::vec2 convertToEllipseCoordinates(const Ellipse& 
 }
 
 // Test the intersection between a segment {v0, v1} and the unit circle.
-__device__ __forceinline__ bool intersectsUnitCircle(const glm::vec2& v0, const glm::vec2& v1)
+__device__ __forceinline__ bool IntersectsUnitCircle(const glm::vec2& v0, const glm::vec2& v1)
 {
     auto delta = v1 - v0;
     auto lengthSqr = glm::length2(delta);
@@ -372,7 +374,7 @@ __device__ __forceinline__ bool intersectsUnitCircle(const glm::vec2& v0, const 
 }
 
 // Test the intersection between an ellipse and a rectangle.
-__device__ __forceinline__ bool ellipseRectOverlap(const Ellipse& ellipse, const Rect& rect)
+__device__ __forceinline__ bool EllipseRectOverlap(const Ellipse& ellipse, const Rect& rect)
 {
     // Either the ellipse contains the rectangle, the rectangle contains the ellipse, or they
     // intersect. No early returns, would not be beneficial at warp scale.
@@ -386,29 +388,29 @@ __device__ __forceinline__ bool ellipseRectOverlap(const Ellipse& ellipse, const
         ellipse.center.y < rect.max.y; //
 
     // Test whether the rectangle center is contained within the ellipse.
-    overlaps |= glm::length2(convertToEllipseCoordinates(ellipse, rect.getCenter())) < 1.0f;
+    overlaps |= glm::length2(ConvertToEllipseCoordinates(ellipse, rect.GetCenter())) < 1.0f;
 
     // Convert rectangle vertices to local ellipse coordinates.
     glm::vec2 points[4];
-    points[0] = convertToEllipseCoordinates(ellipse, rect.min);
-    points[1] = convertToEllipseCoordinates(ellipse, glm::vec2(rect.max.x, rect.min.y));
-    points[2] = convertToEllipseCoordinates(ellipse, rect.max);
-    points[3] = convertToEllipseCoordinates(ellipse, glm::vec2(rect.min.x, rect.max.y));
+    points[0] = ConvertToEllipseCoordinates(ellipse, rect.min);
+    points[1] = ConvertToEllipseCoordinates(ellipse, glm::vec2(rect.max.x, rect.min.y));
+    points[2] = ConvertToEllipseCoordinates(ellipse, rect.max);
+    points[3] = ConvertToEllipseCoordinates(ellipse, glm::vec2(rect.min.x, rect.max.y));
 
     // Test whether rectangle edges intersect with the ellipse.
-    overlaps |= intersectsUnitCircle(points[0], points[1]);
-    overlaps |= intersectsUnitCircle(points[1], points[2]);
-    overlaps |= intersectsUnitCircle(points[2], points[3]);
-    overlaps |= intersectsUnitCircle(points[3], points[0]);
+    overlaps |= IntersectsUnitCircle(points[0], points[1]);
+    overlaps |= IntersectsUnitCircle(points[1], points[2]);
+    overlaps |= IntersectsUnitCircle(points[2], points[3]);
+    overlaps |= IntersectsUnitCircle(points[3], points[0]);
 
     return overlaps;
 }
 
 // Evaluates the axis aligned bounding box of an ellipse.
-__device__ __forceinline__ Rect getAABBRect(const Ellipse& ellipse)
+__device__ __forceinline__ Rect GetAabbRect(const Ellipse& ellipse)
 {
-    auto right = ellipse.getPrincipalAxis();
-    auto up = ellipse.getMinorAxis();
+    auto right = ellipse.GetPrincipalAxis();
+    auto up = ellipse.GetMinorAxis();
 
     // Initialize to extreme values so that they will be overriden.
     Rect rect;
@@ -435,46 +437,46 @@ __device__ __forceinline__ Rect getAABBRect(const Ellipse& ellipse)
     return rect;
 }
 
-constexpr uint32_t k_WarpMask{0xffffffff};
-constexpr int32_t k_WarpSize{32};
-constexpr int32_t k_WarpHalfSize{k_WarpSize / 2};
-constexpr int32_t k_BuildTileListsThreadsPerGroup{k_WarpSize * 8};
-constexpr uint32_t k_MaxUint32{std::numeric_limits<uint32_t>::max()};
+constexpr uint32_t kWarpMask{0xffffffff};
+constexpr int32_t kWarpSize{32};
+constexpr int32_t kWarpHalfSize{kWarpSize / 2};
+constexpr int32_t kBuildTileListsThreadsPerGroup{kWarpSize * 8};
+constexpr uint32_t kMaxUint32{std::numeric_limits<uint32_t>::max()};
 
 // Clip depth in range [-1, 1]. (OpenGL convention.)
 // Combine tile index and clip depth to form a sorting key.
-__device__ __forceinline__ uint64_t getKey(int32_t tileIndex, float clipDepth)
+__device__ __forceinline__ uint64_t GetSortKey(int32_t tile_index, float clipDepth)
 {
     // Recall that we have hardcoded the final buffer size, 1024x1024.
     // 1024 / 16 = 64 -> 4096 tiles total, 12bits.
     // Our projection linearly maps [near, far] to [-1, 1].
     // We use the full 32 bits for maximum precision.
-    auto quantizedDepth = (uint32_t) (glm::clamp((clipDepth + 1.0f) * 0.5f) * k_MaxUint32);
-    return ((uint64_t) tileIndex << 32) | quantizedDepth;
+    auto quantizedDepth = (uint32_t) (glm::clamp((clipDepth + 1.0f) * 0.5f) * kMaxUint32);
+    return ((uint64_t) tile_index << 32) | quantizedDepth;
 }
 
-__global__ void buildTileListKernel()
+__global__ void BuildTileListKernel()
 {
     // Track splats chunks.
     __shared__ int32_t s_SplatStartIndex;
     __shared__ int32_t s_SplatCount;
 
     // Capacity matches one warp, the first warp which is responsible for loading splats.
-    __shared__ int4 s_TilesRects[k_WarpSize];
-    __shared__ float4 s_ScreenEllipse[k_WarpSize];
-    __shared__ float2 s_PositionClipSpaceXY[k_WarpSize];
-    __shared__ float s_Depths[k_WarpSize];
-    __shared__ int s_TileExclusiveScan[k_WarpSize];
+    __shared__ int4 s_TilesRects[kWarpSize];
+    __shared__ float4 s_ScreenEllipse[kWarpSize];
+    __shared__ float2 s_PositionClipSpaceXY[kWarpSize];
+    __shared__ float s_Depths[kWarpSize];
+    __shared__ int s_TileExclusiveScan[kWarpSize];
 
     // Capacity matches the number of threads in the group.
-    __shared__ int s_ExpandedTiles[k_BuildTileListsThreadsPerGroup];
+    __shared__ int s_ExpandedTiles[kBuildTileListsThreadsPerGroup];
     __shared__ int s_ExpandedTileCount;
     __shared__ int s_TotalTilesCount;
     __shared__ int s_CumulatedExpandedTileCount;
     __shared__ bool s_HasPendingTiles;
 
-    __shared__ int64_t s_TileKeys[k_BuildTileListsThreadsPerGroup];
-    __shared__ int32_t s_TileValues[k_BuildTileListsThreadsPerGroup];
+    __shared__ int64_t s_TileKeys[kBuildTileListsThreadsPerGroup];
+    __shared__ int32_t s_TileValues[kBuildTileListsThreadsPerGroup];
     __shared__ int32_t s_TileIndex;
     __shared__ int32_t s_WriteTileStartIndex;
     __shared__ int32_t s_WriteTileEndIndex;
@@ -495,9 +497,9 @@ __global__ void buildTileListKernel()
         // We process chunks of splats to reduce contention on the global counter g_GaussianCounter.
         if (threadIdx.x == 0)
         {
-            auto splatCounter = atomicAdd(&g_SplatCounter, k_WarpSize);
-            s_SplatStartIndex = glm::min(splatCounter, g_GlobalArgs.primitiveCount);
-            auto splatEndIndex = glm::min(splatCounter + k_WarpSize, g_GlobalArgs.primitiveCount);
+            auto splatCounter = atomicAdd(&g_splat_counter, kWarpSize);
+            s_SplatStartIndex = glm::min(splatCounter, g_global_args.primitiveCount);
+            auto splatEndIndex = glm::min(splatCounter + kWarpSize, g_global_args.primitiveCount);
             s_SplatCount = splatEndIndex - s_SplatStartIndex;
             s_ExpandedTileCount = 0;
             s_CumulatedExpandedTileCount = 0;
@@ -515,7 +517,7 @@ __global__ void buildTileListKernel()
         auto tileCount = 0;
 
         // The first warp pulls a chunk of splats and updates the tile list.
-        if (threadIdx.x < k_WarpSize)
+        if (threadIdx.x < kWarpSize)
         {
             // Read splats data, coalesced.
             // Only threads from the first warp may enter here.
@@ -523,25 +525,25 @@ __global__ void buildTileListKernel()
             {
                 // Read current splat data. The one this thread is responsible for.
                 auto srcIndex = s_SplatStartIndex + threadIdx.x;
-                auto positionClipSpaceXYData = loadReadOnly(&g_GlobalArgs.positionsClipSpaceXY[srcIndex]);
-                auto ellipseData = loadReadOnly(&g_GlobalArgs.screenEllipses[srcIndex]);
+                auto positionClipSpaceXYData = LoadReadOnly(&g_global_args.positionsClipSpaceXY[srcIndex]);
+                auto ellipseData = LoadReadOnly(&g_global_args.screenEllipses[srcIndex]);
 
                 auto ellipse = Ellipse();
                 ellipse.center = glm::vec2(positionClipSpaceXYData.x, positionClipSpaceXYData.y);
                 ellipse.cosSin = glm::vec2(ellipseData.x, ellipseData.y);
                 ellipse.extent = glm::vec2(ellipseData.z, ellipseData.w);
 
-                auto rect = getAABBRect(ellipse);
+                auto rect = GetAabbRect(ellipse);
 
                 // From clip to tiles.
-                auto tilesRectFloat = (glm::vec4(rect.min, rect.max) + 1.0f) * 0.5f * (float) k_TilesPerScreen;
+                auto tilesRectFloat = (glm::vec4(rect.min, rect.max) + 1.0f) * 0.5f * (float) kTilesPerScreen;
 
                 // Clip within screen bounds.
                 auto tilesRect = glm::ivec4(
-                    glm::clamp((int32_t) glm::floor(tilesRectFloat.x), 0, k_TilesPerScreen),
-                    glm::clamp((int32_t) glm::floor(tilesRectFloat.y), 0, k_TilesPerScreen),
-                    glm::clamp((int32_t) glm::ceil(tilesRectFloat.z), 0, k_TilesPerScreen),
-                    glm::clamp((int32_t) glm::ceil(tilesRectFloat.w), 0, k_TilesPerScreen));
+                    glm::clamp((int32_t) glm::floor(tilesRectFloat.x), 0, kTilesPerScreen),
+                    glm::clamp((int32_t) glm::floor(tilesRectFloat.y), 0, kTilesPerScreen),
+                    glm::clamp((int32_t) glm::ceil(tilesRectFloat.z), 0, kTilesPerScreen),
+                    glm::clamp((int32_t) glm::ceil(tilesRectFloat.w), 0, kTilesPerScreen));
 
                 // Min-Max to Center-Size representation.
                 tilesRect.zw -= tilesRect.xy;
@@ -551,23 +553,23 @@ __global__ void buildTileListKernel()
                 tileCount = glm::max(0, tilesRect.z * tilesRect.w);
 
                 // Store shared data.
-                s_Depths[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionsClipSpaceZ[srcIndex]);
+                s_Depths[threadIdx.x] = LoadReadOnly(&g_global_args.positionsClipSpaceZ[srcIndex]);
                 s_TilesRects[threadIdx.x] = int4{tilesRect.x, tilesRect.y, tilesRect.z, tilesRect.w};
                 s_ScreenEllipse[threadIdx.x] = ellipseData;
                 s_PositionClipSpaceXY[threadIdx.x] = positionClipSpaceXYData;
             }
 
             // What if no thread has tiles to process? (All splats out of frustum.)
-            auto hasTiles = __ballot_sync(k_WarpMask, tileCount != 0) != 0;
+            auto hasTiles = __ballot_sync(kWarpMask, tileCount != 0) != 0;
 
             if (hasTiles)
             {
                 // Only the first warp passes here, so threadIdx.x is the lane.
                 auto inclusiveScan = tileCount;
 #pragma unroll
-                for (auto delta = 1u; delta <= k_WarpHalfSize; delta <<= 1u)
+                for (auto delta = 1u; delta <= kWarpHalfSize; delta <<= 1u)
                 {
-                    auto n = __shfl_up_sync(k_WarpMask, inclusiveScan, delta);
+                    auto n = __shfl_up_sync(kWarpMask, inclusiveScan, delta);
 
                     // Only process the threads that do have some work.
                     // We never clear the shared array, don't touch what lingers from previous runs.
@@ -580,19 +582,19 @@ __global__ void buildTileListKernel()
 
                 s_TileExclusiveScan[threadIdx.x] = inclusiveScan - tileCount;
 
-                if (threadIdx.x == k_WarpSize - 1)
+                if (threadIdx.x == kWarpSize - 1)
                 {
                     s_TotalTilesCount = inclusiveScan;
                 }
 
                 // Each thread writes its tiles in shared memory, to be processed later by the whole group.
                 // Exclusive scan allows each thread to evaluate its writing indices in shared memory.
-                auto startWriteIndex = glm::min(inclusiveScan - tileCount, k_BuildTileListsThreadsPerGroup);
-                auto endWriteIndex = glm::min(inclusiveScan, k_BuildTileListsThreadsPerGroup);
+                auto startWriteIndex = glm::min(inclusiveScan - tileCount, kBuildTileListsThreadsPerGroup);
+                auto endWriteIndex = glm::min(inclusiveScan, kBuildTileListsThreadsPerGroup);
                 auto writeIndex = startWriteIndex;
 
                 // Write tiles in shared memory.
-                while (__ballot_sync(k_WarpMask, writeIndex < endWriteIndex) != 0)
+                while (__ballot_sync(kWarpMask, writeIndex < endWriteIndex) != 0)
                 {
                     if (writeIndex < endWriteIndex)
                     {
@@ -619,7 +621,7 @@ __global__ void buildTileListKernel()
                     }
                     // There is remaining work.
                     // We will need multiple passes.
-                    else if (endWriteIndex == k_BuildTileListsThreadsPerGroup)
+                    else if (endWriteIndex == kBuildTileListsThreadsPerGroup)
                     {
                         s_HasPendingTiles = true;
                         s_ExpandedTileCount = endWriteIndex;
@@ -645,7 +647,7 @@ __global__ void buildTileListKernel()
             if (threadIdx.x < s_ExpandedTileCount)
             {
                 auto splatIndex = s_ExpandedTiles[threadIdx.x];
-                auto tilesRect = builtinToGlmVec4i(s_TilesRects[splatIndex]);
+                auto tilesRect = BuiltinToGlmVec4i(s_TilesRects[splatIndex]);
                 auto localTileIndex =
                     threadIdx.x - s_TileExclusiveScan[splatIndex] + s_CumulatedExpandedTileCount - s_ExpandedTileCount;
 
@@ -653,7 +655,7 @@ __global__ void buildTileListKernel()
                 auto localTileCoords = glm::ivec2(localTileIndex % tilesRect.z, localTileIndex / tilesRect.z);
                 // Coordinates of the current tile within the screen.
                 auto globalTileCoords = tilesRect.xy + localTileCoords;
-                constexpr float tileNormalizedSize = k_TileSize / (float) k_ScreenSize;
+                constexpr float tileNormalizedSize = kTileSize / (float) kScreenSize;
                 constexpr float tileClipSize = tileNormalizedSize * 2.0f;
                 // Coordinates of the current tile in clip space.
                 auto tileClip = (glm::vec2)(globalTileCoords) *tileClipSize - 1.0f;
@@ -668,12 +670,12 @@ __global__ void buildTileListKernel()
                 ellipse.cosSin = glm::vec2(s_ScreenEllipse[splatIndex].x, s_ScreenEllipse[splatIndex].y);
                 ellipse.extent = glm::vec2(s_ScreenEllipse[splatIndex].z, s_ScreenEllipse[splatIndex].w);
 
-                if (ellipseRectOverlap(ellipse, tileRectClipSpace))
+                if (EllipseRectOverlap(ellipse, tileRectClipSpace))
                 {
                     // The insertion index must be valid since there's room for every thread in the group.
                     auto localInsertionIndex = atomicAdd(&s_TileIndex, 1);
-                    auto globalTileIndex = globalTileCoords.y * k_TilesPerScreen + globalTileCoords.x;
-                    s_TileKeys[localInsertionIndex] = getKey(globalTileIndex, s_Depths[splatIndex]);
+                    auto globalTileIndex = globalTileCoords.y * kTilesPerScreen + globalTileCoords.x;
+                    s_TileKeys[localInsertionIndex] = GetSortKey(globalTileIndex, s_Depths[splatIndex]);
                     s_TileValues[localInsertionIndex] = s_SplatStartIndex + splatIndex;
                 }
             }
@@ -686,10 +688,10 @@ __global__ void buildTileListKernel()
                 // The first thread increments the global counter.
                 if (threadIdx.x == 0)
                 {
-                    auto tileTileListCounter = atomicAdd(&g_TileCounter, s_TileIndex);
+                    auto tileTileListCounter = atomicAdd(&g_tile_counter, s_TileIndex);
                     // Restrict to target capacity.
-                    s_WriteTileStartIndex = glm::min(tileTileListCounter, g_TileListArgs.capacity);
-                    s_WriteTileEndIndex = glm::min(tileTileListCounter + s_TileIndex, g_TileListArgs.capacity);
+                    s_WriteTileStartIndex = glm::min(tileTileListCounter, g_tile_list_args.capacity);
+                    s_WriteTileEndIndex = glm::min(tileTileListCounter + s_TileIndex, g_tile_list_args.capacity);
                     // Reset.
                     s_TileIndex = 0;
                 }
@@ -697,7 +699,7 @@ __global__ void buildTileListKernel()
                 __syncthreads();
 
                 // Abort and exit if global memory is full.
-                if (s_WriteTileEndIndex == g_TileListArgs.capacity)
+                if (s_WriteTileEndIndex == g_tile_list_args.capacity)
                 {
                     return;
                 }
@@ -706,8 +708,8 @@ __global__ void buildTileListKernel()
                 if (threadIdx.x < s_WriteTileEndIndex - s_WriteTileStartIndex)
                 {
                     auto dstIndex = s_WriteTileStartIndex + threadIdx.x;
-                    g_TileListArgs.keys[dstIndex] = s_TileKeys[threadIdx.x];
-                    g_TileListArgs.values[dstIndex] = s_TileValues[threadIdx.x];
+                    g_tile_list_args.keys[dstIndex] = s_TileKeys[threadIdx.x];
+                    g_tile_list_args.values[dstIndex] = s_TileValues[threadIdx.x];
                 }
             }
 
@@ -721,16 +723,16 @@ __global__ void buildTileListKernel()
             }
 
             // The first warp is responsible for distributing a new set of tiles in shared memory.
-            if (threadIdx.x < k_WarpSize)
+            if (threadIdx.x < kWarpSize)
             {
                 // Evaluate the tiles pending processing for the current splat.
                 auto exclusiveScan = s_TileExclusiveScan[threadIdx.x] - s_CumulatedExpandedTileCount;
-                auto startWriteIndex = glm::clamp(exclusiveScan, 0, k_BuildTileListsThreadsPerGroup);
-                auto endWriteIndex = glm::clamp(exclusiveScan + tileCount, 0, k_BuildTileListsThreadsPerGroup);
+                auto startWriteIndex = glm::clamp(exclusiveScan, 0, kBuildTileListsThreadsPerGroup);
+                auto endWriteIndex = glm::clamp(exclusiveScan + tileCount, 0, kBuildTileListsThreadsPerGroup);
                 auto writeIndex = startWriteIndex;
 
                 // Write the next batch of tiles to shared memory.
-                while (__ballot_sync(k_WarpMask, writeIndex < endWriteIndex) != 0)
+                while (__ballot_sync(kWarpMask, writeIndex < endWriteIndex) != 0)
                 {
                     if (writeIndex < endWriteIndex)
                     {
@@ -755,7 +757,7 @@ __global__ void buildTileListKernel()
                     }
                     // There is remaining work.
                     // We still have more passes left.
-                    else if (endWriteIndex == k_BuildTileListsThreadsPerGroup)
+                    else if (endWriteIndex == kBuildTileListsThreadsPerGroup)
                     {
                         s_HasPendingTiles = true;
                         s_ExpandedTileCount = endWriteIndex;
@@ -773,24 +775,24 @@ __global__ void buildTileListKernel()
 static int32_t initCounter{0};
 
 // Emit tiles per splat.
-int32_t buildTileList(CudaTimer& timer, int32_t numBlocks, int32_t tileListCapacity)
+int32_t BuildTileList(CudaTimer& timer, int32_t numBlocks, int32_t tileListCapacity)
 {
     // Reset counters. (Splats and tile render list.)
     initCounter = 0;
-    checkCudaErrors(cudaMemcpyToSymbol(g_SplatCounter, &initCounter, sizeof(int32_t), 0, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpyToSymbol(g_TileCounter, &initCounter, sizeof(int32_t), 0, cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERRORS(cudaMemcpyToSymbol(g_splat_counter, &initCounter, sizeof(int32_t), 0, cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERRORS(cudaMemcpyToSymbol(g_tile_counter, &initCounter, sizeof(int32_t), 0, cudaMemcpyHostToDevice));
 
     // Note that number of groups is passed by the caller.
     // Recall that we have persistent group: they run as long as there is remaining work.
     // This is why the workload is not considered for dispatch parameters.
-    const auto dimBlock = dim3(k_BuildTileListsThreadsPerGroup);
+    const auto dimBlock = dim3(kBuildTileListsThreadsPerGroup);
     const auto dimGrid = dim3(numBlocks);
 
-    timer.start();
-    buildTileListKernel<<<dimGrid, dimBlock>>>();
-    timer.stop();
+    timer.Start();
+    BuildTileListKernel<<<dimGrid, dimBlock>>>();
+    timer.Stop();
 
-    checkCudaErrors(cudaMemcpyFromSymbol(&initCounter, g_TileCounter, sizeof(int32_t), 0, cudaMemcpyDeviceToHost));
+    CHECK_CUDA_ERRORS(cudaMemcpyFromSymbol(&initCounter, g_tile_counter, sizeof(int32_t), 0, cudaMemcpyDeviceToHost));
 
     if (cudaGetLastError() != cudaSuccess)
     {
@@ -803,14 +805,14 @@ int32_t buildTileList(CudaTimer& timer, int32_t numBlocks, int32_t tileListCapac
 
 // Sort the list of tiles.
 // Done with cub::, which requires a temporary buffer that will be reallocated as needed.
-void sortTileList(CudaTimer& timer,
+void SortTileList(CudaTimer& timer,
                   int32_t tileListSize,
                   void*& deviceTempStorage,
                   size_t& tempStorageSizeInBytes,
                   DoubleBuffer<uint64_t>& keys,
                   DoubleBuffer<int32_t>& values)
 {
-    timer.start();
+    timer.Start();
 
     // We can skip the top bits in the key.
     // 32 bits for depth, 12 bits for tile index.
@@ -819,8 +821,8 @@ void sortTileList(CudaTimer& timer,
     constexpr int32_t endBit{32 + 12};
 
     // Instantiate cub:: double buffers.
-    cub::DoubleBuffer<uint64_t> cubKeys(keys.current(), keys.alternate());
-    cub::DoubleBuffer<int32_t> cubValues(values.current(), values.alternate());
+    cub::DoubleBuffer<uint64_t> cubKeys(keys.Current(), keys.Alternate());
+    cub::DoubleBuffer<int32_t> cubValues(values.Current(), values.Alternate());
 
     // Dry run. Allocate temp memory if needed. From the documentation about "d_temp_storage":
     // "When `nullptr`, the required allocation size is written to `temp_storage_bytes` and no work is done."
@@ -832,9 +834,9 @@ void sortTileList(CudaTimer& timer,
     {
         if (deviceTempStorage != nullptr)
         {
-            checkCudaErrors(cudaFree(deviceTempStorage));
+            CHECK_CUDA_ERRORS(cudaFree(deviceTempStorage));
         }
-        checkCudaErrors(cudaMalloc((void**) &deviceTempStorage, requiredTempStorageSizeInBytes));
+        CHECK_CUDA_ERRORS(cudaMalloc((void**) &deviceTempStorage, requiredTempStorageSizeInBytes));
         tempStorageSizeInBytes = requiredTempStorageSizeInBytes;
     }
 
@@ -846,7 +848,7 @@ void sortTileList(CudaTimer& timer,
     keys = DoubleBuffer<uint64_t>(cubKeys.Current(), cubKeys.Alternate());
     values = DoubleBuffer<int32_t>(cubValues.Current(), cubValues.Alternate());
 
-    timer.stop();
+    timer.Stop();
 
     if (cudaGetLastError() != cudaSuccess)
     {
@@ -854,50 +856,50 @@ void sortTileList(CudaTimer& timer,
     }
 }
 
-__global__ void evaluateTileRangesKernel()
+__global__ void EvaluateTileRangesKernel()
 {
     auto index = threadIdx.x + blockIdx.x * blockDim.x;
     // The first thread within the grid handles first and last elements.
     // Not that bad, only one warp within the grid will have divergence.
     if (index == 0)
     {
-        auto firstKey = loadReadOnly(&g_TileListArgs.keys[0]);
+        auto firstKey = LoadReadOnly(&g_tile_list_args.keys[0]);
         auto firstTileIndex = firstKey >> 32;
-        g_GlobalArgs.tileRanges[firstTileIndex * 2] = 0;
+        g_global_args.tileRanges[firstTileIndex * 2] = 0;
 
-        auto lastKey = loadReadOnly(&g_TileListArgs.keys[g_TileListArgs.size - 1]);
+        auto lastKey = LoadReadOnly(&g_tile_list_args.keys[g_tile_list_args.size - 1]);
         auto lastTileIndex = lastKey >> 32;
-        g_GlobalArgs.tileRanges[lastTileIndex * 2 + 1] = g_TileListArgs.size;
+        g_global_args.tileRanges[lastTileIndex * 2 + 1] = g_tile_list_args.size;
     }
-    else if (index < g_TileListArgs.size)
+    else if (index < g_tile_list_args.size)
     {
         // Pairwise comparison, look at the previous element.
-        auto prevKey = loadReadOnly(&g_TileListArgs.keys[index - 1]);
+        auto prevKey = LoadReadOnly(&g_tile_list_args.keys[index - 1]);
         auto prevTileIndex = prevKey >> 32;
-        auto key = loadReadOnly(&g_TileListArgs.keys[index]);
+        auto key = LoadReadOnly(&g_tile_list_args.keys[index]);
         auto tileIndex = key >> 32;
 
         // If we detect a tile change,
         // update the end of the previous range and the start of the current one.
         if (tileIndex != prevTileIndex)
         {
-            g_GlobalArgs.tileRanges[prevTileIndex * 2 + 1] = index;
-            g_GlobalArgs.tileRanges[tileIndex * 2] = index;
+            g_global_args.tileRanges[prevTileIndex * 2 + 1] = index;
+            g_global_args.tileRanges[tileIndex * 2] = index;
         }
     }
 }
 
 // Evaluate ranges within the list corresponding to each tile.
-void evaluateTileRange(CudaTimer& timer, int32_t tileListSize)
+void EvaluateTileRange(CudaTimer& timer, int32_t tileListSize)
 {
     constexpr int32_t threadPerBlock{256};
     const int32_t numBlocks{(tileListSize + threadPerBlock - 1) / threadPerBlock};
     const auto dimBlock{dim3(threadPerBlock)};
     const auto dimGrid{dim3(numBlocks)};
 
-    timer.start();
-    evaluateTileRangesKernel<<<dimGrid, dimBlock>>>();
-    timer.stop();
+    timer.Start();
+    EvaluateTileRangesKernel<<<dimGrid, dimBlock>>>();
+    timer.Stop();
 
     if (cudaGetLastError() != cudaSuccess)
     {
@@ -905,20 +907,20 @@ void evaluateTileRange(CudaTimer& timer, int32_t tileListSize)
     }
 }
 
-__global__ void rasterizeTilesKernel()
+__global__ void RasterizeTilesKernel()
 {
     __shared__ int32_t s_FirstSplatIndex;
     __shared__ int32_t s_SplatsCount;
-    __shared__ float4 s_Colors[k_WarpSize];
-    __shared__ float4 s_Conics[k_WarpSize];
-    __shared__ float2 s_Centers[k_WarpSize];
+    __shared__ float4 s_Colors[kWarpSize];
+    __shared__ float4 s_Conics[kWarpSize];
+    __shared__ float2 s_Centers[kWarpSize];
 
     // The first thread pulls the range beginning and end.
     if (threadIdx.x == 0)
     {
         // Block Id corresponds to the tile.
-        s_FirstSplatIndex = loadReadOnly(&g_GlobalArgs.tileRanges[blockIdx.x * 2]);
-        auto endSplatIndex = loadReadOnly(&g_GlobalArgs.tileRanges[blockIdx.x * 2 + 1]);
+        s_FirstSplatIndex = LoadReadOnly(&g_global_args.tileRanges[blockIdx.x * 2]);
+        auto endSplatIndex = LoadReadOnly(&g_global_args.tileRanges[blockIdx.x * 2 + 1]);
         s_SplatsCount = endSplatIndex - s_FirstSplatIndex;
     }
 
@@ -931,12 +933,12 @@ __global__ void rasterizeTilesKernel()
     }
 
     // Coordinates of the pixel handled by this thread within the tile .
-    const auto threadTilePixelCoords = glm::ivec2(threadIdx.x % k_TileSize, threadIdx.x / k_TileSize);
+    const auto threadTilePixelCoords = glm::ivec2(threadIdx.x % kTileSize, threadIdx.x / kTileSize);
     // Coordinates of the pixel within the assembled image.
     const auto threadBufferPixelCoords =
-        glm::ivec2(blockIdx.x % k_TilesPerScreen, blockIdx.x / k_TilesPerScreen) * k_TileSize + threadTilePixelCoords;
+        glm::ivec2(blockIdx.x % kTilesPerScreen, blockIdx.x / kTilesPerScreen) * kTileSize + threadTilePixelCoords;
     // TODO: Account for pixel center offset (0.5, 0.5)?
-    const auto clipCoords = (glm::vec2) threadBufferPixelCoords * (2.0f / (float) k_ScreenSize) - 1.0f;
+    const auto clipCoords = (glm::vec2) threadBufferPixelCoords * (2.0f / (float) kScreenSize) - 1.0f;
 
     // Initialize color and transmittance for blending. (Volumetric Rendering.)
     auto color = glm::vec3(0.0f);
@@ -947,17 +949,17 @@ __global__ void rasterizeTilesKernel()
         // Don't overflow shared buffers.
         // We only load one 32 splats chunk at once, in hopes of needing no more.
         // These loads aren't coalesced.
-        auto splatsCount = glm::min(s_SplatsCount, k_WarpSize);
+        auto splatsCount = glm::min(s_SplatsCount, kWarpSize);
 
         __syncthreads();
 
         // Load splat data.
         if (threadIdx.x < splatsCount)
         {
-            auto srcIndex = g_TileListArgs.values[s_FirstSplatIndex + threadIdx.x];
-            s_Centers[threadIdx.x] = loadReadOnly(&g_GlobalArgs.positionsClipSpaceXY[srcIndex]);
-            auto conicData = loadReadOnly(&g_GlobalArgs.conics[srcIndex]);
-            auto colorData = loadReadOnly(&g_GlobalArgs.colors[srcIndex]);
+            auto srcIndex = g_tile_list_args.values[s_FirstSplatIndex + threadIdx.x];
+            s_Centers[threadIdx.x] = LoadReadOnly(&g_global_args.positionsClipSpaceXY[srcIndex]);
+            auto conicData = LoadReadOnly(&g_global_args.conics[srcIndex]);
+            auto colorData = LoadReadOnly(&g_global_args.colors[srcIndex]);
             s_Colors[threadIdx.x] = float4{colorData.x, colorData.y, colorData.z, colorData.w};
             s_Conics[threadIdx.x] = float4{conicData.x, conicData.y, conicData.z, 0.0f};
         }
@@ -969,8 +971,8 @@ __global__ void rasterizeTilesKernel()
         for (auto i = 0; i != splatsCount; ++i)
         {
             // Square distance to splat center.
-            auto d = clipCoords - builtinToGlmVec2(s_Centers[i]);
-            auto splatColor = builtinToGlmVec4(s_Colors[i]);
+            auto d = clipCoords - BuiltinToGlmVec2(s_Centers[i]);
+            auto splatColor = BuiltinToGlmVec4(s_Colors[i]);
             auto conic = s_Conics[i];
             // (T(d) * conic * d)
             auto dx = conic.x * d.x * d.x + conic.z * d.y * d.y + 2.0f * conic.y * d.x * d.y;
@@ -1011,21 +1013,21 @@ __global__ void rasterizeTilesKernel()
     quantizedColor.w = 255;
 
     // Commit to global memory.
-    auto globalWriteIndex = threadBufferPixelCoords.y * k_ScreenSize + threadBufferPixelCoords.x;
-    g_GlobalArgs.backBuffer[globalWriteIndex] = quantizedColor;
+    auto globalWriteIndex = threadBufferPixelCoords.y * kScreenSize + threadBufferPixelCoords.x;
+    g_global_args.backBuffer[globalWriteIndex] = quantizedColor;
 }
 
 // Rasterize tiles.
-void rasterizeTile(CudaTimer& timer)
+void RasterizeTile(CudaTimer& timer)
 {
     // We dispatch one block per tile, one thread per pixel within the tile.
-    constexpr int32_t threadPerBlock{k_TileSize * k_TileSize};
+    constexpr int32_t threadPerBlock{kTileSize * kTileSize};
     const auto dimBlock{dim3(threadPerBlock)};
-    const auto dimGrid{dim3(k_TotalTiles)};
+    const auto dimGrid{dim3(kTotalTiles)};
 
-    timer.start();
-    rasterizeTilesKernel<<<dimGrid, dimBlock>>>();
-    timer.stop();
+    timer.Start();
+    RasterizeTilesKernel<<<dimGrid, dimBlock>>>();
+    timer.Stop();
 
     if (cudaGetLastError() != cudaSuccess)
     {

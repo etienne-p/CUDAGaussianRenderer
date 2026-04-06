@@ -1,60 +1,51 @@
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <algorithm>
-#include <map>
-#include <array>
-#include <stdexcept>
 #include "PlyParser.h"
 
-float sigmoid(float x)
+#include <cassert>
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <limits>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+
+static float Sigmoid(float x)
 {
-    return 1.0f / (1.0f + exp(-x));
+    return 1.0f / (1.0f + std::exp(-x));
 }
 
-void parseHeader(std::ifstream& inFile, std::vector<std::string>& properties, int& vertexCount)
+static void ParseHeader(std::ifstream& in_file, std::vector<std::string>& properties, int& vertex_count)
 {
-    vertexCount = -1;
-
-    std::string lineStr;
-    std::string placeholder;
+    vertex_count = -1;
 
     std::string line;
-    auto littleEndian{false};
+    auto little_endian{false};
 
-    // Prevent infinite loop with bad headers.
-    constexpr int maxLength{256};
+    constexpr int kMaxHeaderLines{256};
     auto iteration{0};
 
-    // Iterate over lines.
-    while (std::getline(inFile, line))
+    while (std::getline(in_file, line))
     {
         std::stringstream ss(line);
         std::string word;
 
-        // Iterate over words within lines.
-        // the normal input operator >> separates on whitespace and so can be used to read "words"
         if (!(ss >> word))
         {
             throw std::invalid_argument("Unexpected empty line.");
         }
 
-        // TODO: Account for the expected order of appearance.
-
         if (word == "ply")
         {
-            // We expect this but have nothing to do with it.
             continue;
         }
-
         else if (word == "format")
         {
-            littleEndian = ss >> word && word == "binary_little_endian";
+            little_endian = ss >> word && word == "binary_little_endian";
         }
-
         else if (word == "element")
         {
-            // We expect 2 words, the vertex type and its count.
             if (!(ss >> word && word == "vertex"))
             {
                 throw std::invalid_argument("Unexpected element type.");
@@ -65,12 +56,10 @@ void parseHeader(std::ifstream& inFile, std::vector<std::string>& properties, in
                 throw std::invalid_argument("Unexpected element count.");
             }
 
-            vertexCount = std::stoi(word);
+            vertex_count = std::stoi(word);
         }
-
         else if (word == "property")
         {
-            // We only expect float for the time being.
             if (!(ss >> word && word == "float"))
             {
                 throw std::invalid_argument("Unexpected property format, expected float.");
@@ -88,10 +77,9 @@ void parseHeader(std::ifstream& inFile, std::vector<std::string>& properties, in
 
             properties.push_back(word);
         }
-
         else if (word == "end_header")
         {
-            if (!littleEndian || vertexCount == -1)
+            if (!little_endian || vertex_count == -1)
             {
                 throw std::invalid_argument("Invalid header. Format or vertex count not found.");
             }
@@ -101,227 +89,198 @@ void parseHeader(std::ifstream& inFile, std::vector<std::string>& properties, in
 
         ++iteration;
 
-        if (iteration > maxLength)
+        if (iteration > kMaxHeaderLines)
         {
             throw std::invalid_argument("Invalid header. End not found.");
         }
     }
 }
 
-int parsePly(const char* filePath, std::vector<std::string>& properties, std::vector<std::vector<float>>& propertiesData)
+static int ParsePlyRaw(
+    const char* file_path, std::vector<std::string>& properties, std::vector<std::vector<float>>& properties_data)
 {
     assert(properties.size() == 0);
-    assert(propertiesData.size() == 0);
+    assert(properties_data.size() == 0);
 
-    std::ifstream inFile(filePath, std::ios_base::binary);
+    std::ifstream in_file(file_path, std::ios_base::binary);
 
-    // Parse header.
-    auto vertexCount{-1};
-    parseHeader(inFile, properties, vertexCount);
+    auto vertex_count{-1};
+    ParseHeader(in_file, properties, vertex_count);
 
-    const auto numProps = properties.size();
-    // Allocate memory;
-    propertiesData.resize(numProps);
-    for (auto i = 0; i != numProps; ++i)
+    const auto num_props = properties.size();
+    properties_data.resize(num_props);
+    for (auto i = 0; i != num_props; ++i)
     {
-        propertiesData[i] = std::vector<float>();
-        propertiesData[i].resize(vertexCount);
+        properties_data[i] = std::vector<float>();
+        properties_data[i].resize(vertex_count);
     }
 
-    // Deserialize properties data.
-    for (auto i = 0; i != vertexCount; ++i)
+    for (auto i = 0; i != vertex_count; ++i)
     {
-        for (auto j = 0; j != numProps; ++j)
+        for (auto j = 0; j != num_props; ++j)
         {
             float val;
-            inFile.read(reinterpret_cast<char*>(&val), sizeof(float));
-            propertiesData[j][i] = val;
+            in_file.read(reinterpret_cast<char*>(&val), sizeof(float));
+            properties_data[j][i] = val;
         }
     }
 
-    return vertexCount;
+    return vertex_count;
 }
 
-int indexOf(const std::vector<std::string>& properties, const std::string& property)
+static int IndexOf(const std::vector<std::string>& properties, const std::string& property)
 {
     auto it = std::find(properties.begin(), properties.end(), property);
     if (it == properties.end())
     {
         throw std::invalid_argument("Missing property \"" + property + "\".");
     }
-    return std::distance(properties.begin(), it);
+    return static_cast<int>(std::distance(properties.begin(), it));
 }
 
-int parsePly(const char* filePath,
+int ParsePly(const char* file_path,
              std::vector<float4>& positions,
              std::vector<float4>& scales,
              std::vector<float4>& rotations,
              std::vector<float4>& colors,
-             std::vector<float>& sphericalHarmonics,
-             int& sphericalHarmonicsDegree,
-             int& sphericalHarmonicsCount,
-             glm::vec3& boundsMin,
-             glm::vec3& boundsMax)
+             std::vector<float>& spherical_harmonics,
+             int& spherical_harmonics_degree,
+             int& spherical_harmonics_count,
+             glm::vec3& bounds_min,
+             glm::vec3& bounds_max)
 {
     std::vector<std::string> properties;
-    std::vector<std::vector<float>> propertiesData;
-    auto vertexCount = parsePly(filePath, properties, propertiesData);
+    std::vector<std::vector<float>> properties_data;
+    auto vertex_count = ParsePlyRaw(file_path, properties, properties_data);
 
-    // Ensure that expected (required) properties are present and store their offset.
     std::array<int, 14> offsets{};
-    offsets[0] = indexOf(properties, "x");
-    offsets[1] = indexOf(properties, "y");
-    offsets[2] = indexOf(properties, "z");
-    offsets[3] = indexOf(properties, "rot_0");
-    offsets[4] = indexOf(properties, "rot_1");
-    offsets[5] = indexOf(properties, "rot_2");
-    offsets[6] = indexOf(properties, "rot_3");
-    offsets[7] = indexOf(properties, "scale_0");
-    offsets[8] = indexOf(properties, "scale_1");
-    offsets[9] = indexOf(properties, "scale_2");
-    offsets[10] = indexOf(properties, "f_dc_0");
-    offsets[11] = indexOf(properties, "f_dc_1");
-    offsets[12] = indexOf(properties, "f_dc_2");
-    offsets[13] = indexOf(properties, "opacity");
+    offsets[0] = IndexOf(properties, "x");
+    offsets[1] = IndexOf(properties, "y");
+    offsets[2] = IndexOf(properties, "z");
+    offsets[3] = IndexOf(properties, "rot_0");
+    offsets[4] = IndexOf(properties, "rot_1");
+    offsets[5] = IndexOf(properties, "rot_2");
+    offsets[6] = IndexOf(properties, "rot_3");
+    offsets[7] = IndexOf(properties, "scale_0");
+    offsets[8] = IndexOf(properties, "scale_1");
+    offsets[9] = IndexOf(properties, "scale_2");
+    offsets[10] = IndexOf(properties, "f_dc_0");
+    offsets[11] = IndexOf(properties, "f_dc_1");
+    offsets[12] = IndexOf(properties, "f_dc_2");
+    offsets[13] = IndexOf(properties, "opacity");
 
-    // Allocate result memory.
-    positions.resize(vertexCount);
-    scales.resize(vertexCount);
-    rotations.resize(vertexCount);
-    colors.resize(vertexCount);
+    positions.resize(vertex_count);
+    scales.resize(vertex_count);
+    rotations.resize(vertex_count);
+    colors.resize(vertex_count);
 
-    // Handle extra spherical harmonics.
-    auto extraSphericalHarmonicsCount{0};
-    auto shOffsets = std::vector<int>();
+    auto extra_spherical_harmonics_count{0};
+    auto sh_offsets = std::vector<int>();
     for (;;)
     {
-        auto it =
-            std::find(properties.begin(), properties.end(), "f_rest_" + std::to_string(extraSphericalHarmonicsCount));
+        auto it = std::find(
+            properties.begin(), properties.end(), "f_rest_" + std::to_string(extra_spherical_harmonics_count));
         if (it == properties.end())
         {
             break;
         }
-        else
-        {
-            shOffsets.push_back(std::distance(properties.begin(), it));
-        }
-
-        ++extraSphericalHarmonicsCount;
+        sh_offsets.push_back(static_cast<int>(std::distance(properties.begin(), it)));
+        ++extra_spherical_harmonics_count;
     }
 
-    // Count spherical harmonics levels.
-    auto expectedSphericalHarmonicsCount{0};
-    sphericalHarmonicsDegree = 0;
-    while (expectedSphericalHarmonicsCount < extraSphericalHarmonicsCount)
+    auto expected_spherical_harmonics_count{0};
+    spherical_harmonics_degree = 0;
+    while (expected_spherical_harmonics_count < extra_spherical_harmonics_count)
     {
-        // There are (2l + 1) spherical harmonics for each degree (level).
-        // Add one since level zero is the color stored in f_dc_{0, 2}.
-        // Times 3 as we have RGB channels.
-        expectedSphericalHarmonicsCount += (2 * (sphericalHarmonicsDegree + 1) + 1) * 3;
-        ++sphericalHarmonicsDegree;
+        expected_spherical_harmonics_count += (2 * (spherical_harmonics_degree + 1) + 1) * 3;
+        ++spherical_harmonics_degree;
     }
 
-    // Verify that the number of spherical harmonics is sensible.
-    if (expectedSphericalHarmonicsCount != extraSphericalHarmonicsCount)
+    if (expected_spherical_harmonics_count != extra_spherical_harmonics_count)
     {
         throw std::invalid_argument(
-            "Expected degree " + std::to_string(sphericalHarmonicsDegree) + ", "
-            + std::to_string(expectedSphericalHarmonicsCount) + " extra spherical harmonics." + " Found "
-            + std::to_string(extraSphericalHarmonicsCount) + ".");
+            "Expected degree " + std::to_string(spherical_harmonics_degree) + ", "
+            + std::to_string(expected_spherical_harmonics_count) + " extra spherical harmonics." + " Found "
+            + std::to_string(extra_spherical_harmonics_count) + ".");
     }
 
-    sphericalHarmonicsCount = extraSphericalHarmonicsCount + 3;
+    spherical_harmonics_count = extra_spherical_harmonics_count + 3;
 
-    if (sphericalHarmonicsDegree != 0)
+    if (spherical_harmonics_degree != 0)
     {
-        // We align spherical harmonics using 4 floats for aligned access.
-        sphericalHarmonics.resize(vertexCount * sphericalHarmonicsCount);
+        spherical_harmonics.resize(vertex_count * spherical_harmonics_count);
 
-        for (auto i = 0; i != vertexCount; ++i)
+        for (auto i = 0; i != vertex_count; ++i)
         {
-            auto ptr = reinterpret_cast<float*>(&(*sphericalHarmonics.begin()) + sphericalHarmonicsCount * i);
+            auto ptr = reinterpret_cast<float*>(&(*spherical_harmonics.begin()) + spherical_harmonics_count * i);
 
-            // When using extra spherical harmonics we also bundle level 0 into the buffer.
             for (auto j = 0; j != 3; ++j)
             {
-                *ptr = propertiesData[offsets[10 + j]][i];
+                *ptr = properties_data[offsets[10 + j]][i];
                 ++ptr;
             }
 
-            // The rest of extra spherical harmonics, the ones that are optional.
-            for (auto j = 0; j != extraSphericalHarmonicsCount; ++j)
+            for (auto j = 0; j != extra_spherical_harmonics_count; ++j)
             {
-                *ptr = propertiesData[shOffsets[j]][i];
+                *ptr = properties_data[sh_offsets[j]][i];
                 ++ptr;
             }
         }
 
-        auto rgbShCount = extraSphericalHarmonicsCount / 3;
-        auto tmp = std::vector<float>(extraSphericalHarmonicsCount);
+        auto rgb_sh_count = extra_spherical_harmonics_count / 3;
+        auto tmp = std::vector<float>(extra_spherical_harmonics_count);
 
-        // TODO: Merge re-order with step above (copy).
-        for (auto i = 0; i != vertexCount; ++i)
+        for (auto i = 0; i != vertex_count; ++i)
         {
-            auto start = sphericalHarmonicsCount * i + 3;
-            for (auto j = 0; j != rgbShCount; ++j)
+            auto start = spherical_harmonics_count * i + 3;
+            for (auto j = 0; j != rgb_sh_count; ++j)
             {
-                tmp[j * 3 + 0] = sphericalHarmonics[start + j];
-                tmp[j * 3 + 1] = sphericalHarmonics[start + rgbShCount + j];
-                tmp[j * 3 + 2] = sphericalHarmonics[start + rgbShCount * 2 + j];
+                tmp[j * 3 + 0] = spherical_harmonics[start + j];
+                tmp[j * 3 + 1] = spherical_harmonics[start + rgb_sh_count + j];
+                tmp[j * 3 + 2] = spherical_harmonics[start + rgb_sh_count * 2 + j];
             }
-            for (auto j = 0; j != extraSphericalHarmonicsCount; ++j)
+            for (auto j = 0; j != extra_spherical_harmonics_count; ++j)
             {
-                sphericalHarmonics[start + j] = tmp[j];
+                spherical_harmonics[start + j] = tmp[j];
             }
         }
     }
 
-    boundsMin = glm::vec3(std::numeric_limits<float>::max());
-    boundsMax = glm::vec3(std::numeric_limits<float>::min());
+    bounds_min = glm::vec3(std::numeric_limits<float>::max());
+    bounds_max = glm::vec3(std::numeric_limits<float>::lowest());
 
-    for (auto i = 0; i != vertexCount; ++i)
+    constexpr float kShC0 = 0.28209479177387814f;
+
+    for (auto i = 0; i != vertex_count; ++i)
     {
         // Note: quaternion is encoded with .w first.
-        // clang-format off
-        auto translation = glm::vec3(
-            propertiesData[offsets[0]][i], 
-            propertiesData[offsets[1]][i], 
-            propertiesData[offsets[2]][i]);
+        auto translation =
+            glm::vec3(properties_data[offsets[0]][i], properties_data[offsets[1]][i], properties_data[offsets[2]][i]);
         auto rotation = glm::quat::wxyz(
-            propertiesData[offsets[3]][i],
-            propertiesData[offsets[4]][i],
-            propertiesData[offsets[5]][i],
-            propertiesData[offsets[6]][i]);
-        auto scale = glm::vec3(
-            propertiesData[offsets[7]][i], 
-            propertiesData[offsets[8]][i], 
-            propertiesData[offsets[9]][i]);
-        auto sphericalHarmonics = glm::vec3(
-            propertiesData[offsets[10]][i], 
-            propertiesData[offsets[11]][i], 
-            propertiesData[offsets[12]][i]);
-        auto opacity = propertiesData[offsets[13]][i];
-        // clang-format on
+            properties_data[offsets[3]][i],
+            properties_data[offsets[4]][i],
+            properties_data[offsets[5]][i],
+            properties_data[offsets[6]][i]);
+        auto scale =
+            glm::vec3(properties_data[offsets[7]][i], properties_data[offsets[8]][i], properties_data[offsets[9]][i]);
+        auto sh_rgb = glm::vec3(
+            properties_data[offsets[10]][i], properties_data[offsets[11]][i], properties_data[offsets[12]][i]);
+        auto opacity = properties_data[offsets[13]][i];
 
-        // Process deserialized data.
         rotation = glm::normalize(rotation);
         scale = glm::exp(scale);
-        opacity = sigmoid(opacity);
+        opacity = Sigmoid(opacity);
 
-        // Update bounds.
-        boundsMin = glm::min(boundsMin, translation);
-        boundsMax = glm::max(boundsMax, translation);
+        bounds_min = glm::min(bounds_min, translation);
+        bounds_max = glm::max(bounds_max, translation);
 
-        // Convert spherical harmonics to RGB values.
-        const float SH_C0{0.28209479177387814f};
-        auto rgb = sphericalHarmonics * SH_C0 + 0.5f;
+        auto rgb = sh_rgb * kShC0 + 0.5f;
 
-        // Bundle opacity with position. Comes in handy when evaluating spherical harmonics.
         positions[i] = float4{translation.x, translation.y, translation.z, opacity};
         scales[i] = float4{scale.x, scale.y, scale.z, 0.f};
         rotations[i] = float4{rotation.x, rotation.y, rotation.z, rotation.w};
         colors[i] = float4{rgb.x, rgb.y, rgb.z, opacity};
     }
 
-    return vertexCount;
+    return vertex_count;
 }

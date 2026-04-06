@@ -9,119 +9,115 @@ template <typename T>
 class DeviceBuffer
 {
   private:
-    T* m_Ptr{nullptr};
-    std::size_t m_Size{0};
-    std::size_t m_AllocatedSize{0};
-    void releaseIfNeeded();
+    T* ptr_{nullptr};
+    std::size_t size_{0};
+    std::size_t allocated_size_{0};
+    void ReleaseIfNeeded();
 
   public:
-    std::size_t size() const
+    std::size_t Size() const
     {
-        return m_Size;
+        return size_;
     };
-    T* getPtr() const
+    T* GetPtr() const
     {
-        return m_Ptr;
+        return ptr_;
     };
     DeviceBuffer()
-        : m_Ptr(nullptr)
-        , m_Size(0)
-        , m_AllocatedSize(0) {};
-    DeviceBuffer(std::size_t size, bool shouldClearMemory = false);
+        : ptr_(nullptr)
+        , size_(0)
+        , allocated_size_(0) {};
+    DeviceBuffer(std::size_t size, bool should_clear_memory = false);
     DeviceBuffer(std::vector<T> data);
     ~DeviceBuffer();
-    bool resizeIfNeeded(std::size_t size);
-    void copyFrom(const std::vector<T>& data);
-    void copyTo(std::vector<T>& data);
-    void copyTo(std::vector<T>& data, std::size_t count);
-    void clearMemory(int32_t value);
+    bool ResizeIfNeeded(std::size_t size);
+    void CopyFrom(const std::vector<T>& data);
+    void CopyTo(std::vector<T>& data);
+    void CopyTo(std::vector<T>& data, std::size_t count);
+    void ClearMemory(int32_t value);
 };
 
 template <typename T>
-void DeviceBuffer<T>::clearMemory(int32_t value)
+void DeviceBuffer<T>::ClearMemory(int32_t value)
 {
-    checkCudaErrors(cudaMemset(m_Ptr, value, m_Size * sizeof(T)));
+    CHECK_CUDA_ERRORS(cudaMemset(ptr_, value, size_ * sizeof(T)));
 }
 
 template <typename T>
-bool DeviceBuffer<T>::resizeIfNeeded(std::size_t size)
+bool DeviceBuffer<T>::ResizeIfNeeded(std::size_t size)
 {
-    if (size != m_Size)
+    if (size != size_)
     {
-        // Reallocate if we need more space.
-        if (size > m_AllocatedSize)
+        if (size > allocated_size_)
         {
-            releaseIfNeeded();
-            m_Size = size;
-            m_AllocatedSize = size;
-            checkCudaErrors(cudaMalloc((void**) &m_Ptr, m_AllocatedSize * sizeof(T)));
+            ReleaseIfNeeded();
+            size_ = size;
+            allocated_size_ = size;
+            CHECK_CUDA_ERRORS(cudaMalloc((void**) &ptr_, allocated_size_ * sizeof(T)));
             return true;
         }
-        // Just update used space.
-        m_Size = size;
+        size_ = size;
     }
     return false;
 }
 
 template <typename T>
-void DeviceBuffer<T>::releaseIfNeeded()
+void DeviceBuffer<T>::ReleaseIfNeeded()
 {
-    if (m_Ptr != nullptr)
+    if (ptr_ != nullptr)
     {
-        checkCudaErrors(cudaFree(m_Ptr));
-        m_Ptr = nullptr;
+        CHECK_CUDA_ERRORS(cudaFree(ptr_));
+        ptr_ = nullptr;
     }
-    m_Size = 0;
-    m_AllocatedSize = 0;
+    size_ = 0;
+    allocated_size_ = 0;
 }
 
 template <typename T>
-DeviceBuffer<T>::DeviceBuffer(std::size_t size, bool shouldClearMemory)
+DeviceBuffer<T>::DeviceBuffer(std::size_t size, bool should_clear_memory)
 {
-    resizeIfNeeded(size);
-    if (shouldClearMemory)
+    ResizeIfNeeded(size);
+    if (should_clear_memory)
     {
-        clearMemory(0);
+        ClearMemory(0);
     }
 };
 
 template <typename T>
 DeviceBuffer<T>::DeviceBuffer(std::vector<T> data)
 {
-    copyFrom(data);
+    CopyFrom(data);
 };
 
 template <typename T>
 DeviceBuffer<T>::~DeviceBuffer()
 {
-    releaseIfNeeded();
+    ReleaseIfNeeded();
 };
 
 template <typename T>
-void DeviceBuffer<T>::copyFrom(const std::vector<T>& data)
+void DeviceBuffer<T>::CopyFrom(const std::vector<T>& data)
 {
-    resizeIfNeeded(data.size());
-    // TODO: Should we instead throw an error when the passed vector is empty?
+    ResizeIfNeeded(data.size());
     if (data.size() != 0)
     {
-        checkCudaErrors(cudaMemcpy(m_Ptr, &data[0], data.size() * sizeof(T), cudaMemcpyHostToDevice));
+        CHECK_CUDA_ERRORS(cudaMemcpy(ptr_, &data[0], data.size() * sizeof(T), cudaMemcpyHostToDevice));
     }
 }
 
 template <typename T>
-void DeviceBuffer<T>::copyTo(std::vector<T>& data, std::size_t count)
+void DeviceBuffer<T>::CopyTo(std::vector<T>& data, std::size_t count)
 {
-    // TODO: What if we're empty and have no actual data to copy to the target?
-    assert(count <= m_Size);
+    assert(count <= size_);
     if (data.size() != count)
     {
         data.resize(count);
     }
-    checkCudaErrors(cudaMemcpy(&data[0], m_Ptr, count * sizeof(T), cudaMemcpyDeviceToHost));
+    CHECK_CUDA_ERRORS(cudaMemcpy(&data[0], ptr_, count * sizeof(T), cudaMemcpyDeviceToHost));
 }
 
 template <typename T>
-void DeviceBuffer<T>::copyTo(std::vector<T>& data)
+void DeviceBuffer<T>::CopyTo(std::vector<T>& data)
 {
-    copyTo(data, data.size());
+    CopyTo(data, data.size());
 }

@@ -1,253 +1,239 @@
 #include "CameraControls.h"
 
-bool rayIntersectsPlane(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec4& plane, float& t)
+static bool
+RayIntersectsPlane(const glm::vec3& ray_origin, const glm::vec3& ray_direction, const glm::vec4& plane, float& t)
 {
-    auto denom = glm::dot(rayDirection, plane.xyz());
+    auto denom = glm::dot(ray_direction, plane.xyz());
     if (denom == 0.0f)
     {
         return false;
     }
 
-    t = -(glm::dot(rayOrigin, plane.xyz()) + plane.w) / denom;
+    t = -(glm::dot(ray_origin, plane.xyz()) + plane.w) / denom;
     return true;
 }
 
-glm::vec4 getPlane(const glm::vec3& normal, const glm::vec3& point)
+static glm::vec4 GetPlane(const glm::vec3& normal, const glm::vec3& point)
 {
     return glm::vec4(normal, -glm::dot(normal, point));
 }
 
-glm::vec3 projectOnPlane(const glm::vec3& vec, const glm::vec3& planeNormal)
+static glm::vec3 ProjectOnPlane(const glm::vec3& vec, const glm::vec3& plane_normal)
 {
-    return vec - glm::dot(planeNormal, vec);
+    return vec - glm::dot(plane_normal, vec);
 }
 
-constexpr glm::vec3 k_Up = glm::vec3(0, 1, 0);
-constexpr glm::vec3 k_Right = glm::vec3(1, 0, 0);
-constexpr glm::vec3 k_Back = glm::vec3(0, 0, 1);
+static constexpr glm::vec3 kUp = glm::vec3(0, 1, 0);
+static constexpr glm::vec3 kRight = glm::vec3(1, 0, 0);
+static constexpr glm::vec3 kBack = glm::vec3(0, 0, 1);
 
-glm::quat removeRoll(glm::quat rotation)
+static glm::quat RemoveRoll(glm::quat rotation)
 {
     auto rot = glm::mat3(rotation);
     auto right = rot[0];
     auto up = rot[1];
     auto forward = rot[2];
 
-    right = glm::normalize(projectOnPlane(right, k_Up));
-    up = glm::normalize(projectOnPlane(up, right));
+    right = glm::normalize(ProjectOnPlane(right, kUp));
+    up = glm::normalize(ProjectOnPlane(up, right));
     forward = glm::cross(right, up);
 
     return glm::quat(glm::mat3(right, up, forward));
 }
 
-glm::vec3 CameraControls::getMovement() const
+glm::vec3 CameraControls::GetMovement() const
 {
     auto result = glm::vec3(0.0f);
 
-    if (glfwGetKey(m_Window, GLFW_KEY_W) == GLFW_PRESS)
+    if (glfwGetKey(window_, GLFW_KEY_W) == GLFW_PRESS)
     {
         result.z -= 1.0f;
     }
-    if (glfwGetKey(m_Window, GLFW_KEY_A) == GLFW_PRESS)
+    if (glfwGetKey(window_, GLFW_KEY_A) == GLFW_PRESS)
     {
         result.x -= 1.0f;
     }
-    if (glfwGetKey(m_Window, GLFW_KEY_S) == GLFW_PRESS)
+    if (glfwGetKey(window_, GLFW_KEY_S) == GLFW_PRESS)
     {
         result.z += 1.0f;
     }
-    if (glfwGetKey(m_Window, GLFW_KEY_D) == GLFW_PRESS)
+    if (glfwGetKey(window_, GLFW_KEY_D) == GLFW_PRESS)
     {
         result.x += 1.0f;
     }
-    if (glfwGetKey(m_Window, GLFW_KEY_Q) == GLFW_PRESS)
+    if (glfwGetKey(window_, GLFW_KEY_Q) == GLFW_PRESS)
     {
         result.y += 1.0f;
     }
-    if (glfwGetKey(m_Window, GLFW_KEY_E) == GLFW_PRESS)
+    if (glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS)
     {
         result.y -= 1.0f;
     }
     return result;
 }
 
-glm::vec3 CameraControls::getPosition() const
+glm::vec3 CameraControls::GetPosition() const
 {
-    return m_Position;
+    return position_;
 }
 
-glm::mat4 CameraControls::getView() const
+glm::mat4 CameraControls::GetView() const
 {
-    // Or transpose rotation, subtract translation.
-    auto rotation = glm::mat4_cast(m_Rotation);
-    auto translation = glm::translate(glm::mat4(1.0f), m_Position);
-    auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, -1));
-    return glm::inverse(translation * rotation); // *scale;
+    auto rotation = glm::mat4_cast(rotation_);
+    auto translation = glm::translate(glm::mat4(1.0f), position_);
+    return glm::inverse(translation * rotation);
 }
 
-glm::mat4 CameraControls::getProjection() const
+glm::mat4 CameraControls::GetProjection() const
 {
-    return glm::perspective(m_FieldOfView, getAspect(), m_Near, m_Far);
+    return glm::perspective(field_of_view_, GetAspect(), z_near_, z_far_);
 }
 
-glm::mat4 CameraControls::getViewProjection() const
+glm::mat4 CameraControls::GetViewProjection() const
 {
-    return getProjection() * getView();
+    return GetProjection() * GetView();
 }
 
-void CameraControls::getWorldSpaceRay(
-    const glm::vec2& pointerPosition, glm::vec3& rayOrigin, glm::vec3& rayDirection) const
+void CameraControls::GetWorldSpaceRay(
+    const glm::vec2& pointer_position, glm::vec3& ray_origin, glm::vec3& ray_direction) const
 {
-    auto viewProjection = getViewProjection();
-    auto viewProjectionInverse = glm::inverse(viewProjection);
-    auto pointerPositionClip = (pointerPosition / m_ScreenSize) * 2.0f - 1.0f;
-    // Flip y, mouse coords start at top.
-    pointerPositionClip.y *= -1;
-    auto from = viewProjectionInverse * glm::vec4(pointerPositionClip, -1.0f, 1.0f);
-    auto to = viewProjectionInverse * glm::vec4(pointerPositionClip, 1.0f, 1.0f);
+    auto view_projection = GetViewProjection();
+    auto view_projection_inverse = glm::inverse(view_projection);
+    auto pointer_position_clip = (pointer_position / screen_size_) * 2.0f - 1.0f;
+    pointer_position_clip.y *= -1;
+    auto from = view_projection_inverse * glm::vec4(pointer_position_clip, -1.0f, 1.0f);
+    auto to = view_projection_inverse * glm::vec4(pointer_position_clip, 1.0f, 1.0f);
     from /= from.w;
     to /= to.w;
 
-    rayOrigin = from;
-    rayDirection = glm::normalize(to - from);
+    ray_origin = from;
+    ray_direction = glm::normalize(to - from);
 }
 
-CameraControls::MouseButton CameraControls::getMouseButton() const
+CameraControls::MouseButton CameraControls::GetMouseButton() const
 {
-    if (glfwGetMouseButton(m_Window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+    if (glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
         return CameraControls::MouseButton::Left;
     }
-    if (glfwGetMouseButton(m_Window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
+    if (glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
     {
         return CameraControls::MouseButton::Middle;
     }
-    if (glfwGetMouseButton(m_Window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+    if (glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
     {
         return CameraControls::MouseButton::Right;
     }
     return CameraControls::MouseButton::None;
 }
 
-void CameraControls::setBounds(const glm::vec3& min, const glm::vec3& max)
+void CameraControls::SetBounds(const glm::vec3& min, const glm::vec3& max)
 {
     auto size = max - min;
     auto center = min + size * 0.5f;
-    auto maxSize = glm::max(size.x, glm::max(size.y, size.z));
-    // Infer speed from bounds.
-    m_Speed = maxSize * 0.02f;
-    // Place camera in view of the bounding box.
-    auto offset = glm::normalize(glm::vec3(0.0f, maxSize * 0.5f, maxSize * 0.5f));
-    auto dist = glm::sqrt(2.0f) * maxSize * 0.5f / glm::tan(m_FieldOfView * 0.5f);
-    m_Position = center + offset * dist;
-    m_Rotation = glm::quatLookAt(-offset, k_Up);
-    m_FloorPlane = getPlane(k_Up, center);
-    m_AnchorPosition = center;
+    auto max_size = glm::max(size.x, glm::max(size.y, size.z));
+    speed_ = max_size * 0.02f;
+    auto offset = glm::normalize(glm::vec3(0.0f, max_size * 0.5f, max_size * 0.5f));
+    auto dist = glm::sqrt(2.0f) * max_size * 0.5f / glm::tan(field_of_view_ * 0.5f);
+    position_ = center + offset * dist;
+    rotation_ = glm::quatLookAt(-offset, kUp);
+    floor_plane_ = GetPlane(kUp, center);
+    anchor_position_ = center;
 }
 
-void CameraControls::update(float dt)
+void CameraControls::Update(float dt)
 {
-    // Update mode.
-    auto mouseButton = getMouseButton();
-    if (mouseButton != m_MouseButton)
+    auto mouse_button = GetMouseButton();
+    if (mouse_button != mouse_button_)
     {
-        switch (mouseButton)
+        switch (mouse_button)
         {
             case MouseButton::None:
-                m_Mode = Mode::None;
+                mode_ = Mode::None;
                 break;
             case MouseButton::Left:
-                m_Mode = Mode::Drag;
+                mode_ = Mode::Drag;
                 break;
             case MouseButton::Middle:
-                m_Mode = Mode::Orbit;
+                mode_ = Mode::Orbit;
                 break;
             case MouseButton::Right:
-                m_Mode = Mode::Pan;
-                m_StartPanPositionIsValid = false;
+                mode_ = Mode::Pan;
+                start_pan_position_is_valid_ = false;
                 break;
         }
 
-        m_MouseButton = mouseButton;
+        mouse_button_ = mouse_button;
     }
 
-    // Fetch pointer position and evaluate world space ray.
     double xpos, ypos;
-    glfwGetCursorPos(m_Window, &xpos, &ypos);
-    auto pointerIsInside = xpos >= 0 || xpos < m_ScreenSize.x || ypos >= 0 || ypos < m_ScreenSize.y;
-    auto pointerPosition = glm::vec2((float) xpos, (float) ypos);
+    glfwGetCursorPos(window_, &xpos, &ypos);
+    auto pointer_is_inside = xpos >= 0 || xpos < screen_size_.x || ypos >= 0 || ypos < screen_size_.y;
+    auto pointer_position = glm::vec2((float) xpos, (float) ypos);
 
-    auto rayOrigin = glm::vec3();
-    auto rayDirection = glm::vec3();
-    getWorldSpaceRay(pointerPosition, rayOrigin, rayDirection);
+    auto ray_origin = glm::vec3();
+    auto ray_direction = glm::vec3();
+    GetWorldSpaceRay(pointer_position, ray_origin, ray_direction);
 
-    auto pointerDelta = m_MousePositionIsValid ? pointerPosition - m_PointerPosition : glm::vec2(0.0f);
+    auto pointer_delta = mouse_position_is_valid_ ? pointer_position - pointer_position_ : glm::vec2(0.0f);
 
-    // Only useful for the first update.
-    m_MousePositionIsValid = true;
+    mouse_position_is_valid_ = true;
 
-    // TODO: Add orbit more once we support raycasting.
-    switch (m_Mode)
+    switch (mode_)
     {
         case Mode::None: {
             auto t = 0.0f;
-            if (rayIntersectsPlane(rayOrigin, rayDirection, m_FloorPlane, t))
+            if (RayIntersectsPlane(ray_origin, ray_direction, floor_plane_, t))
             {
-                m_AnchorPosition = rayOrigin + rayDirection * t;
+                anchor_position_ = ray_origin + ray_direction * t;
             }
         }
-
         break;
 
         case Mode::Drag: {
-            auto yawAndPitch = glm::vec2(m_FieldOfView * getAspect(), m_FieldOfView) * pointerDelta / m_ScreenSize;
-            auto yaw = glm::angleAxis(yawAndPitch.x, k_Up);
-            auto pitch = glm::angleAxis(yawAndPitch.y, k_Right);
-            m_Rotation = removeRoll(m_Rotation * yaw * pitch);
+            auto yaw_and_pitch = glm::vec2(field_of_view_ * GetAspect(), field_of_view_) * pointer_delta / screen_size_;
+            auto yaw = glm::angleAxis(yaw_and_pitch.x, kUp);
+            auto pitch = glm::angleAxis(yaw_and_pitch.y, kRight);
+            rotation_ = RemoveRoll(rotation_ * yaw * pitch);
         }
-
         break;
 
         case Mode::Orbit: {
-            // Pitch and yaw directly derived from pointer movement.
-            auto yawAndPitch = glm::vec2(m_FieldOfView * getAspect(), m_FieldOfView) * pointerDelta / m_ScreenSize;
-            auto right = m_Rotation * k_Right;
-            auto pitchRot = glm::angleAxis(-yawAndPitch.y, right);
-            auto yawRot = glm::angleAxis(-yawAndPitch.x, k_Up);
-            auto deltaRotation = yawRot * pitchRot;
-            auto rotation = removeRoll(deltaRotation * m_Rotation);
-            // Move with respect to the anchor.
-            auto anchorToCamera = deltaRotation * (m_Position - m_AnchorPosition);
-            m_Rotation = rotation;
-            m_Position = m_AnchorPosition + anchorToCamera;
+            auto yaw_and_pitch = glm::vec2(field_of_view_ * GetAspect(), field_of_view_) * pointer_delta / screen_size_;
+            auto right = rotation_ * kRight;
+            auto pitch_rot = glm::angleAxis(-yaw_and_pitch.y, right);
+            auto yaw_rot = glm::angleAxis(-yaw_and_pitch.x, kUp);
+            auto delta_rotation = yaw_rot * pitch_rot;
+            auto new_rotation = RemoveRoll(delta_rotation * rotation_);
+            auto anchor_to_camera = delta_rotation * (position_ - anchor_position_);
+            rotation_ = new_rotation;
+            position_ = anchor_position_ + anchor_to_camera;
         }
         break;
 
         case Mode::Pan: {
-            auto plane = getPlane(m_Rotation * k_Back, m_AnchorPosition);
+            auto plane = GetPlane(rotation_ * kBack, anchor_position_);
             auto t = 0.0f;
 
-            if (rayIntersectsPlane(rayOrigin, rayDirection, plane, t))
+            if (RayIntersectsPlane(ray_origin, ray_direction, plane, t))
             {
-                auto hit = rayOrigin + rayDirection * t;
-                if (m_StartPanPositionIsValid)
+                auto hit = ray_origin + ray_direction * t;
+                if (start_pan_position_is_valid_)
                 {
-                    auto delta = hit - m_StartPanPosition;
-                    m_Position -= delta;
+                    auto delta = hit - start_pan_position_;
+                    position_ -= delta;
                 }
-                else if (pointerIsInside)
+                else if (pointer_is_inside)
                 {
-                    m_StartPanPosition = hit;
-                    m_StartPanPositionIsValid = true;
+                    start_pan_position_ = hit;
+                    start_pan_position_is_valid_ = true;
                 }
             }
         }
-
         break;
     }
 
-    // Apply movement (W, A, S, D, ...).
-    m_Position += m_Rotation * (getMovement() * dt);
+    position_ += rotation_ * (GetMovement() * dt);
 
-    m_PointerPosition = pointerPosition;
+    pointer_position_ = pointer_position;
 }

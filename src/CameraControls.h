@@ -23,54 +23,54 @@ class CameraControls
         Right
     };
 
-    GLFWwindow* m_Window{nullptr};
-    Mode m_Mode{Mode::None};
-    bool m_MousePositionIsValid{false};
-    MouseButton m_MouseButton{MouseButton::None};
-    glm::vec2 m_PointerPosition;
-    glm::vec3 m_StartPanPosition;
-    bool m_StartPanPositionIsValid{false};
-    glm::vec2 m_ScreenSize;
+    GLFWwindow* window_{nullptr};
+    Mode mode_{Mode::None};
+    bool mouse_position_is_valid_{false};
+    MouseButton mouse_button_{MouseButton::None};
+    glm::vec2 pointer_position_;
+    glm::vec3 start_pan_position_;
+    bool start_pan_position_is_valid_{false};
+    glm::vec2 screen_size_;
 
-    float m_Near{0.1f};
-    float m_Far{100.0f};
-    float m_FieldOfView{glm::radians(60.0f)};
+    float z_near_{0.1f};
+    float z_far_{100.0f};
+    float field_of_view_{glm::radians(60.0f)};
 
-    float m_Speed;
-    glm::vec3 m_AnchorPosition;
-    glm::vec4 m_FloorPlane;
-    glm::quat m_Rotation;
-    glm::vec3 m_Position;
+    float speed_;
+    glm::vec3 anchor_position_;
+    glm::vec4 floor_plane_;
+    glm::quat rotation_;
+    glm::vec3 position_;
 
-    glm::vec3 getMovement() const;
-    MouseButton getMouseButton() const;
-    void getWorldSpaceRay(const glm::vec2& pointerPosition, glm::vec3& rayOrigin, glm::vec3& rayDirection) const;
+    glm::vec3 GetMovement() const;
+    MouseButton GetMouseButton() const;
+    void GetWorldSpaceRay(const glm::vec2& pointer_position, glm::vec3& ray_origin, glm::vec3& ray_direction) const;
 
   public:
-    CameraControls(GLFWwindow* window, const glm::vec2& screenSize)
-        : m_Window(window)
-        , m_ScreenSize(screenSize)
+    CameraControls(GLFWwindow* window, const glm::vec2& screen_size)
+        : window_(window)
+        , screen_size_(screen_size)
     {}
-    float getAspect() const
+    float GetAspect() const
     {
-        return m_ScreenSize.x / m_ScreenSize.y;
+        return screen_size_.x / screen_size_.y;
     }
-    float getFieldOfView() const
+    float GetFieldOfView() const
     {
-        return m_FieldOfView;
+        return field_of_view_;
     }
-    float getNear() const
+    float GetNear() const
     {
-        return m_Near;
+        return z_near_;
     }
-    float getFar() const
+    float GetFar() const
     {
-        return m_Far;
+        return z_far_;
     }
-    glm::vec3 getPosition() const;
-    glm::mat4 getView() const;
-    glm::mat4 getProjection() const;
-    glm::mat4 getViewProjection() const;
-    void setBounds(const glm::vec3& min, const glm::vec3& max);
-    void update(float dt);
+    glm::vec3 GetPosition() const;
+    glm::mat4 GetView() const;
+    glm::mat4 GetProjection() const;
+    glm::mat4 GetViewProjection() const;
+    void SetBounds(const glm::vec3& min, const glm::vec3& max);
+    void Update(float dt);
 };

@@ -18,7 +18,7 @@ GLFWwindow* window;
 
 // clang-format off
 // Shaders used to display the texture on screen.
-const char* vertexShaderTextured = R"(
+const char* kVertexShaderTextured = R"(
     #version 330 core
     layout(location = 0) in vec3 vertexPosition_modelspace;
     layout(location = 1) in vec2 vertexUv;
@@ -30,7 +30,7 @@ const char* vertexShaderTextured = R"(
     }
 )";
 
-const char* fragmentShaderTextured = R"(
+const char* kFragmentShaderTextured = R"(
     #version 330 core
     in vec2 uv;
     out vec4 color;
@@ -42,79 +42,79 @@ const char* fragmentShaderTextured = R"(
 )";
 // clang-format on
 
-GLuint compileShadersProgram(const char* vertexShader, const char* fragmentShader)
+GLuint CompileShadersProgram(const char* vertex_shader, const char* fragment_shader)
 {
     // Create the shaders
-    auto vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-    auto fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
+    auto vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
+    auto fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
 
     GLint result = GL_FALSE;
-    int infoLogLength;
+    int info_log_length;
 
     // Compile Vertex Shader
-    glShaderSource(vertexShaderId, 1, &vertexShader, NULL);
-    glCompileShader(vertexShaderId);
+    glShaderSource(vertex_shader_id, 1, &vertex_shader, NULL);
+    glCompileShader(vertex_shader_id);
 
     // Check Vertex Shader
-    glGetShaderiv(vertexShaderId, GL_COMPILE_STATUS, &result);
-    glGetShaderiv(vertexShaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
+    glGetShaderiv(vertex_shader_id, GL_COMPILE_STATUS, &result);
+    glGetShaderiv(vertex_shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
 
-    if (infoLogLength > 0)
+    if (info_log_length > 0)
     {
-        std::vector<char> VertexShaderErrorMessage(infoLogLength + 1);
-        glGetShaderInfoLog(vertexShaderId, infoLogLength, NULL, &VertexShaderErrorMessage[0]);
-        printf("%s\n", &VertexShaderErrorMessage[0]);
+        std::vector<char> vertex_shader_error_message(info_log_length + 1);
+        glGetShaderInfoLog(vertex_shader_id, info_log_length, NULL, &vertex_shader_error_message[0]);
+        printf("%s\n", &vertex_shader_error_message[0]);
     }
 
     // Compile Fragment Shader
-    glShaderSource(fragmentShaderId, 1, &fragmentShader, NULL);
-    glCompileShader(fragmentShaderId);
+    glShaderSource(fragment_shader_id, 1, &fragment_shader, NULL);
+    glCompileShader(fragment_shader_id);
 
     // Check Fragment Shader
-    glGetShaderiv(fragmentShaderId, GL_COMPILE_STATUS, &result);
-    glGetShaderiv(fragmentShaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
+    glGetShaderiv(fragment_shader_id, GL_COMPILE_STATUS, &result);
+    glGetShaderiv(fragment_shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
 
-    if (infoLogLength > 0)
+    if (info_log_length > 0)
     {
-        std::vector<char> FragmentShaderErrorMessage(infoLogLength + 1);
-        glGetShaderInfoLog(fragmentShaderId, infoLogLength, NULL, &FragmentShaderErrorMessage[0]);
-        printf("%s\n", &FragmentShaderErrorMessage[0]);
+        std::vector<char> fragment_shader_error_message(info_log_length + 1);
+        glGetShaderInfoLog(fragment_shader_id, info_log_length, NULL, &fragment_shader_error_message[0]);
+        printf("%s\n", &fragment_shader_error_message[0]);
     }
 
     // Link the program
-    auto programId = glCreateProgram();
-    glAttachShader(programId, vertexShaderId);
-    glAttachShader(programId, fragmentShaderId);
-    glLinkProgram(programId);
+    auto program_id = glCreateProgram();
+    glAttachShader(program_id, vertex_shader_id);
+    glAttachShader(program_id, fragment_shader_id);
+    glLinkProgram(program_id);
 
     // Check the program
-    glGetProgramiv(programId, GL_LINK_STATUS, &result);
-    glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &infoLogLength);
+    glGetProgramiv(program_id, GL_LINK_STATUS, &result);
+    glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length);
 
-    if (infoLogLength > 0)
+    if (info_log_length > 0)
     {
-        std::vector<char> ProgramErrorMessage(infoLogLength + 1);
-        glGetProgramInfoLog(programId, infoLogLength, NULL, &ProgramErrorMessage[0]);
-        printf("%s\n", &ProgramErrorMessage[0]);
+        std::vector<char> program_error_message(info_log_length + 1);
+        glGetProgramInfoLog(program_id, info_log_length, NULL, &program_error_message[0]);
+        printf("%s\n", &program_error_message[0]);
     }
 
-    glDetachShader(programId, vertexShaderId);
-    glDetachShader(programId, fragmentShaderId);
+    glDetachShader(program_id, vertex_shader_id);
+    glDetachShader(program_id, fragment_shader_id);
 
-    glDeleteShader(vertexShaderId);
-    glDeleteShader(fragmentShaderId);
+    glDeleteShader(vertex_shader_id);
+    glDeleteShader(fragment_shader_id);
 
-    return programId;
+    return program_id;
 }
 
-float4 glmToBuiltin4(const glm::vec4& v)
+float4 GlmToBuiltin4(const glm::vec4& v)
 {
     return float4{v.x, v.y, v.z, v.w};
 }
 
 // TODO: Add color buffer.
 // Used to generate random test splats.
-void generateRandomGaussians(
+void GenerateRandomGaussians(
     std::vector<float4>& positions,
     std::vector<float4>& scales,
     std::vector<float4>& rotations,
@@ -141,22 +141,22 @@ void generateRandomGaussians(
     }
 }
 
-constexpr uint32_t k_QuadIndices[] = {0, 1, 2, 2, 3, 0};
-const glm::vec3 k_QuadVertices[] = {{-1, -1, 0}, {1, -1, 0}, {1, 1, 0}, {-1, 1, 0}};
-const glm::vec2 k_QuadUvs[] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+constexpr uint32_t kQuadIndices[] = {0, 1, 2, 2, 3, 0};
+const glm::vec3 kQuadVertices[] = {{-1, -1, 0}, {1, -1, 0}, {1, 1, 0}, {-1, 1, 0}};
+const glm::vec2 kQuadUvs[] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
 struct Stats
 {
-    double evaluateSphericalHarmonics{0};
-    double evaluateClipData{0};
-    double buildTileList{0};
-    double sortTileList{0};
-    double evaluateTileRanges{0};
-    double renderDepthBuffer{0};
+    double evaluate_spherical_harmonics{0};
+    double evaluate_clip_data{0};
+    double build_tile_list{0};
+    double sort_tile_list{0};
+    double evaluate_tile_ranges{0};
+    double render_depth_buffer{0};
 };
 
 // Re-align spherical harmonics for more efficient memory usage on the GPU.
-void realignSphericalHarmonics(
+void RealignSphericalHarmonics(
     const std::vector<float>& srcSh,
     std::vector<float>& dstSh,
     const int groupSize,
@@ -210,7 +210,7 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Open a window and create its OpenGL context
-    window = glfwCreateWindow(k_ScreenSize, k_ScreenSize, "GaussianRenderer", NULL, NULL);
+    window = glfwCreateWindow(kScreenSize, kScreenSize, "GaussianRenderer", NULL, NULL);
     if (window == NULL)
     {
         fprintf(stderr,
@@ -241,12 +241,12 @@ int main(int argc, char* argv[])
     memset(&prop, 0, sizeof(cudaDeviceProp));
     prop.major = 1;
     prop.minor = 0;
-    checkCudaErrors(cudaChooseDevice(&dev, &prop));
-    checkCudaErrors(cudaGLSetGLDevice(dev));
+    CHECK_CUDA_ERRORS(cudaChooseDevice(&dev, &prop));
+    CHECK_CUDA_ERRORS(cudaGLSetGLDevice(dev));
 
     cudaGetDeviceProperties(&prop, dev);
 
-    auto cameraControls = CameraControls(window, glm::vec2(k_ScreenSize));
+    auto camera_controls = CameraControls(window, glm::vec2(kScreenSize));
 
     std::vector<float> sphericalHarmonics;
     int sphericalHarmonicsDegree{0};
@@ -264,9 +264,9 @@ int main(int argc, char* argv[])
     auto scales = std::vector<float4>(splatCount);
     auto rotations = std::vector<float4>(splatCount);
     auto colors = std::vector<float4>(splatCount);
-    generateRandomGaussians(positions, scales, rotations, colors, 0.01f, 0.5f, boundsMin, boundsMax);
+    GenerateRandomGaussians(positions, scales, rotations, colors, 0.01f, 0.5f, boundsMin, boundsMax);
 
-    cameraControls.setBounds(glm::vec3(-worldBoundsExtent), glm::vec3(worldBoundsExtent));
+    camera_controls.SetBounds(glm::vec3(-worldBoundsExtent), glm::vec3(worldBoundsExtent));
 
 #else
     // Load splats from a .ply file.
@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
     std::vector<float4> colors;
     glm::vec3 boundsMin;
     glm::vec3 boundsMax;
-    auto splatCount = parsePly(
+    auto splatCount = ParsePly(
         argv[1],
         positions,
         scales,
@@ -292,25 +292,25 @@ int main(int argc, char* argv[])
     std::vector<float> alignedSphericalHarmonics;
     if (sphericalHarmonicsDegree != 0)
     {
-        realignSphericalHarmonics(
+        RealignSphericalHarmonics(
             sphericalHarmonics, alignedSphericalHarmonics, 256, sphericalHarmonicsCount, splatCount);
         std::swap(sphericalHarmonics, alignedSphericalHarmonics);
     }
 
-    cameraControls.setBounds(boundsMin, boundsMax);
+    camera_controls.SetBounds(boundsMin, boundsMax);
 
 #endif
 
     // Create and compile the GLSL program. Used to draw the texture CUDA renders to.
-    auto programTexturedId = compileShadersProgram(vertexShaderTextured, fragmentShaderTextured);
+    auto programTexturedId = CompileShadersProgram(kVertexShaderTextured, kFragmentShaderTextured);
     auto textureId = glGetUniformLocation(programTexturedId, "textureSampler");
 
     auto vertexArray = GLVertexArray();
     // OpenGL buffers.
-    auto glVertexBuffer = GLBuffer<glm::vec3, GL_ARRAY_BUFFER>(4, k_QuadVertices);
-    auto glUvBuffer = GLBuffer<glm::vec2, GL_ARRAY_BUFFER>(4, k_QuadUvs);
-    auto glIndexBuffer = GLBuffer<uint32_t, GL_ARRAY_BUFFER>(6, k_QuadIndices);
-    auto glColorBuffer = GLBuffer<uchar4, GL_PIXEL_UNPACK_BUFFER>(k_ScreenSize * k_ScreenSize);
+    auto glVertexBuffer = GLBuffer<glm::vec3, GL_ARRAY_BUFFER>(4, kQuadVertices);
+    auto glUvBuffer = GLBuffer<glm::vec2, GL_ARRAY_BUFFER>(4, kQuadUvs);
+    auto glIndexBuffer = GLBuffer<uint32_t, GL_ARRAY_BUFFER>(6, kQuadIndices);
+    auto glColorBuffer = GLBuffer<uchar4, GL_PIXEL_UNPACK_BUFFER>(kScreenSize * kScreenSize);
 
     // CUDA buffers.
     auto positionBuffer = DeviceBuffer<float4>(positions);
@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
     auto positionClipSpaceXYBuffer = DeviceBuffer<float2>(splatCount);
     auto positionClipSpaceZBuffer = DeviceBuffer<float>(splatCount);
     auto screenEllipseBuffer = DeviceBuffer<float4>(splatCount);
-    auto tileRangeBuffer = DeviceBuffer<int32_t>(k_TotalTiles * 2);
+    auto tileRangeBuffer = DeviceBuffer<int32_t>(kTotalTiles * 2);
 
     // Static size, no dynamic alloc for now.
     auto tileListCapacity = splatCount * 8;
@@ -338,11 +338,11 @@ int main(int argc, char* argv[])
     size_t tempStorageSizeInBytes{0};
 
     // Share OpenGL color buffer with CUDA. It's the buffer we render to.
-    auto colorBufferResource = CudaGraphicsResource(glColorBuffer.getBufferId(), cudaGraphicsRegisterFlagsNone);
+    auto colorBufferResource = CudaGraphicsResource(glColorBuffer.GetBufferId(), cudaGraphicsRegisterFlagsNone);
 
     Stats stats;
     long frameCount{0};
-    auto cudaTimer = CudaTimer();
+    auto cuda_timer = CudaTimer();
 
     // We use a timer to cap frame rate.
     auto lastTime = glfwGetTime();
@@ -361,10 +361,10 @@ int main(int argc, char* argv[])
         {
             // Double the size of the tile list.
             tileListCapacity <<= 1;
-            tileListKeysCurrentBuffer.resizeIfNeeded(tileListCapacity);
-            tileListValuesCurrentBuffer.resizeIfNeeded(tileListCapacity);
-            tileListKeysAlternateBuffer.resizeIfNeeded(tileListCapacity);
-            tileListValuesAlternateBuffer.resizeIfNeeded(tileListCapacity);
+            tileListKeysCurrentBuffer.ResizeIfNeeded(tileListCapacity);
+            tileListValuesCurrentBuffer.ResizeIfNeeded(tileListCapacity);
+            tileListKeysAlternateBuffer.ResizeIfNeeded(tileListCapacity);
+            tileListValuesAlternateBuffer.ResizeIfNeeded(tileListCapacity);
             tileListIsSaturated = false;
         }
 
@@ -374,112 +374,112 @@ int main(int argc, char* argv[])
         lastTime = time;
 
         // Update input & camera controls.
-        cameraControls.update((float) deltaTime);
+        camera_controls.Update((float) deltaTime);
 
         // Build camera data.
         CameraData cameraData;
-        cameraData.position = cameraControls.getPosition();
-        cameraData.aspect = cameraControls.getAspect();
-        cameraData.projection = cameraControls.getProjection();
-        cameraData.viewProjection = cameraControls.getViewProjection();
-        cameraData.view = cameraControls.getView();
-        auto cotangentY = 1.0f / glm::tan(cameraControls.getFieldOfView() * 0.5f);
-        auto cotangentX = cotangentY / cameraControls.getAspect();
+        cameraData.position = camera_controls.GetPosition();
+        cameraData.aspect = camera_controls.GetAspect();
+        cameraData.projection = camera_controls.GetProjection();
+        cameraData.viewProjection = camera_controls.GetViewProjection();
+        cameraData.view = camera_controls.GetView();
+        auto cotangentY = 1.0f / glm::tan(camera_controls.GetFieldOfView() * 0.5f);
+        auto cotangentX = cotangentY / camera_controls.GetAspect();
         cameraData.fovCotangent = glm::vec2(cotangentX, cotangentY);
         // Orthographic mapping of the Z axis.
         // We use the default right handed coordinates, so we flip Z via scaleZ.
         // Clip depth is in [0, 1], this range matters when evaluating sorting keys.
-        auto scaleZ = -2.0f / (cameraControls.getFar() - cameraControls.getNear());
-        auto translationZ = -(cameraControls.getFar() + cameraControls.getNear())
-                          / (cameraControls.getFar() - cameraControls.getNear());
+        auto scaleZ = -2.0f / (camera_controls.GetFar() - camera_controls.GetNear());
+        auto translationZ = -(camera_controls.GetFar() + camera_controls.GetNear())
+                          / (camera_controls.GetFar() - camera_controls.GetNear());
         cameraData.depthScaleBias = glm::vec2(scaleZ, translationZ);
 
         // CUDA Update.
         {
-            auto colorBinding = colorBufferResource.getBinding<uchar4>();
+            auto colorBinding = colorBufferResource.GetBinding<uchar4>();
 
             // Clear color buffer.
-            checkCudaErrors(cudaMemset(colorBinding.getPtr(), 0, glColorBuffer.getSizeInBytes()));
+            CHECK_CUDA_ERRORS(cudaMemset(colorBinding.GetPtr(), 0, glColorBuffer.GetSizeInBytes()));
 
             // Clear tile ranges. Needed to identify empty ranges.
             // Set all pointers to 0xFFFFFFFF = -1
-            tileRangeBuffer.clearMemory(255);
+            tileRangeBuffer.ClearMemory(255);
 
             // Set global data.
             GlobalArgs globalArgs;
             globalArgs.primitiveCount = splatCount;
-            globalArgs.positionsClipSpaceXY = positionClipSpaceXYBuffer.getPtr();
-            globalArgs.positionsClipSpaceZ = positionClipSpaceZBuffer.getPtr();
+            globalArgs.positionsClipSpaceXY = positionClipSpaceXYBuffer.GetPtr();
+            globalArgs.positionsClipSpaceZ = positionClipSpaceZBuffer.GetPtr();
             globalArgs.sphericalHarmonicsDegree = sphericalHarmonicsDegree;
             globalArgs.sphericalHarmonicsCount = sphericalHarmonicsCount;
-            globalArgs.sphericalHarmonics = sphericalHarmonicsBuffer.getPtr();
-            globalArgs.screenEllipses = screenEllipseBuffer.getPtr();
-            globalArgs.positions = positionBuffer.getPtr();
-            globalArgs.scales = scalesBuffer.getPtr();
-            globalArgs.rotations = rotationsBuffer.getPtr();
-            globalArgs.colors = colorBuffer.getPtr();
-            globalArgs.conics = conicAndColorBuffer.getPtr();
-            globalArgs.tileRanges = tileRangeBuffer.getPtr();
-            globalArgs.backBuffer = colorBinding.getPtr();
+            globalArgs.sphericalHarmonics = sphericalHarmonicsBuffer.GetPtr();
+            globalArgs.screenEllipses = screenEllipseBuffer.GetPtr();
+            globalArgs.positions = positionBuffer.GetPtr();
+            globalArgs.scales = scalesBuffer.GetPtr();
+            globalArgs.rotations = rotationsBuffer.GetPtr();
+            globalArgs.colors = colorBuffer.GetPtr();
+            globalArgs.conics = conicAndColorBuffer.GetPtr();
+            globalArgs.tileRanges = tileRangeBuffer.GetPtr();
+            globalArgs.backBuffer = colorBinding.GetPtr();
             globalArgs.cameraData = cameraData;
 
-            setGlobalArgs(&globalArgs);
+            SetGlobalArgs(&globalArgs);
 
             // Pass current tile list buffers.
             TileListArgs tileListArgs;
-            tileListArgs.keys = tileListKeysCurrentBuffer.getPtr();
-            tileListArgs.values = tileListValuesCurrentBuffer.getPtr();
+            tileListArgs.keys = tileListKeysCurrentBuffer.GetPtr();
+            tileListArgs.values = tileListValuesCurrentBuffer.GetPtr();
             tileListArgs.capacity = tileListCapacity;
 
-            setTileListArgs(&tileListArgs);
+            SetTileListArgs(&tileListArgs);
 
             if (sphericalHarmonicsDegree != 0)
             {
-                evaluateSphericalHarmonics(cudaTimer, splatCount);
-                stats.evaluateSphericalHarmonics += (double) cudaTimer.getElapseTimedMs();
+                EvaluateSphericalHarmonics(cuda_timer, splatCount);
+                stats.evaluate_spherical_harmonics += (double) cuda_timer.GetElapsedTimeMs();
             }
 
-            evaluateSplatClipData(cudaTimer, splatCount);
-            stats.evaluateClipData += (double) cudaTimer.getElapseTimedMs();
+            EvaluateSplatClipData(cuda_timer, splatCount);
+            stats.evaluate_clip_data += (double) cuda_timer.GetElapsedTimeMs();
 
             // Multiple blocks per multiprocessor, to give the scheduler a chance to hide memory latency.
-            tileListArgs.size = buildTileList(cudaTimer, prop.multiProcessorCount * 8, tileListCapacity);
+            tileListArgs.size = BuildTileList(cuda_timer, prop.multiProcessorCount * 8, tileListCapacity);
             assert(tileListArgs.size <= tileListCapacity);
-            stats.buildTileList += (double) cudaTimer.getElapseTimedMs();
+            stats.build_tile_list += (double) cuda_timer.GetElapsedTimeMs();
 
             // Track whether the tile list is saturated.
             tileListIsSaturated = tileListArgs.size == tileListCapacity;
 
             // Update render list args with render list size.
-            setTileListArgs(&tileListArgs);
+            SetTileListArgs(&tileListArgs);
 
             // Instantiate double buffers.
             DoubleBuffer<uint64_t> tileListKeys(
-                tileListKeysCurrentBuffer.getPtr(), tileListKeysAlternateBuffer.getPtr());
+                tileListKeysCurrentBuffer.GetPtr(), tileListKeysAlternateBuffer.GetPtr());
             DoubleBuffer<int32_t> tileListValues(
-                tileListValuesCurrentBuffer.getPtr(), tileListValuesAlternateBuffer.getPtr());
+                tileListValuesCurrentBuffer.GetPtr(), tileListValuesAlternateBuffer.GetPtr());
 
-            sortTileList(
-                cudaTimer, tileListArgs.size, deviceTempStorage, tempStorageSizeInBytes, tileListKeys, tileListValues);
-            stats.sortTileList += (double) cudaTimer.getElapseTimedMs();
+            SortTileList(
+                cuda_timer, tileListArgs.size, deviceTempStorage, tempStorageSizeInBytes, tileListKeys, tileListValues);
+            stats.sort_tile_list += (double) cuda_timer.GetElapsedTimeMs();
 
             // Update render list args with current buffers.
-            tileListArgs.keys = tileListKeys.current();
-            tileListArgs.values = tileListValues.current();
+            tileListArgs.keys = tileListKeys.Current();
+            tileListArgs.values = tileListValues.Current();
 
-            setTileListArgs(&tileListArgs);
+            SetTileListArgs(&tileListArgs);
 
             // Bypass if no splat is visible.
             if (tileListArgs.size != 0)
             {
-                evaluateTileRange(cudaTimer, tileListArgs.size);
-                stats.evaluateTileRanges += (double) cudaTimer.getElapseTimedMs();
+                EvaluateTileRange(cuda_timer, tileListArgs.size);
+                stats.evaluate_tile_ranges += (double) cuda_timer.GetElapsedTimeMs();
             }
 
-            rasterizeTile(cudaTimer);
-            stats.renderDepthBuffer += (double) cudaTimer.getElapseTimedMs();
+            RasterizeTile(cuda_timer);
+            stats.render_depth_buffer += (double) cuda_timer.GetElapsedTimeMs();
 
-            checkCudaErrors(cudaDeviceSynchronize());
+            CHECK_CUDA_ERRORS(cudaDeviceSynchronize());
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -490,9 +490,9 @@ int main(int argc, char* argv[])
             glUseProgram(programTexturedId);
             glEnable(GL_TEXTURE_2D);
 
-            auto vertexBinding = glVertexBuffer.getBinding(0);
+            auto vertexBinding = glVertexBuffer.GetBinding(0);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-            auto uvBinding = glUvBuffer.getBinding(1);
+            auto uvBinding = glUvBuffer.GetBinding(1);
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
 
             glActiveTexture(GL_TEXTURE0);
@@ -507,13 +507,13 @@ int main(int argc, char* argv[])
             // If a non-zero named buffer object is bound to the GL_PIXEL_UNPACK_BUFFER target (see
             // glBindBuffer) while a texture image is specified, data is treated as a byte offset
             // into the buffer object's data store.
-            auto depthBinding = glColorBuffer.getBinding();
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_ScreenSize, k_ScreenSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            auto depthBinding = glColorBuffer.GetBinding();
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kScreenSize, kScreenSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
             glUniform1i(textureId, 0);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glIndexBuffer.getBufferId());
-            glDrawElements(GL_TRIANGLES, glIndexBuffer.getSize(), GL_UNSIGNED_INT, (void*) 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glIndexBuffer.GetBufferId());
+            glDrawElements(GL_TRIANGLES, glIndexBuffer.GetSize(), GL_UNSIGNED_INT, (void*) 0);
 
             glDisable(GL_TEXTURE_2D);
         }
@@ -534,7 +534,7 @@ int main(int argc, char* argv[])
     // Release radix sort temporary memory.
     if (deviceTempStorage != nullptr)
     {
-        checkCudaErrors(cudaFree(deviceTempStorage));
+        CHECK_CUDA_ERRORS(cudaFree(deviceTempStorage));
     }
 
     glDeleteProgram(programTexturedId);
@@ -543,26 +543,26 @@ int main(int argc, char* argv[])
     glfwTerminate();
 
     // Evaluate profiling averages and print to terminal.
-    stats.evaluateSphericalHarmonics /= (double) frameCount;
-    stats.evaluateClipData /= (double) frameCount;
-    stats.buildTileList /= (double) frameCount;
-    stats.sortTileList /= (double) frameCount;
-    stats.evaluateTileRanges /= (double) frameCount;
-    stats.renderDepthBuffer /= (double) frameCount;
+    stats.evaluate_spherical_harmonics /= (double) frameCount;
+    stats.evaluate_clip_data /= (double) frameCount;
+    stats.build_tile_list /= (double) frameCount;
+    stats.sort_tile_list /= (double) frameCount;
+    stats.evaluate_tile_ranges /= (double) frameCount;
+    stats.render_depth_buffer /= (double) frameCount;
 
     auto totalMs = //
-        stats.evaluateClipData + //
-        stats.buildTileList + //
-        stats.sortTileList + //
-        stats.evaluateTileRanges + //
-        stats.renderDepthBuffer; //
+        stats.evaluate_clip_data + //
+        stats.build_tile_list + //
+        stats.sort_tile_list + //
+        stats.evaluate_tile_ranges + //
+        stats.render_depth_buffer; //
 
-    printf("evaluateSphericalHarmonics average time ms: %2.6f\n", stats.evaluateSphericalHarmonics);
-    printf("evaluateClipData average time ms: %2.6f\n", stats.evaluateClipData);
-    printf("buildTileList average time ms: %2.6f\n", stats.buildTileList);
-    printf("sortTileList average time ms: %2.6f\n", stats.sortTileList);
-    printf("evaluateTileRanges average time ms: %2.6f\n", stats.evaluateTileRanges);
-    printf("renderDepthBuffer average time ms: %2.6f\n", stats.renderDepthBuffer);
+    printf("evaluateSphericalHarmonics average time ms: %2.6f\n", stats.evaluate_spherical_harmonics);
+    printf("evaluateClipData average time ms: %2.6f\n", stats.evaluate_clip_data);
+    printf("buildTileList average time ms: %2.6f\n", stats.build_tile_list);
+    printf("sortTileList average time ms: %2.6f\n", stats.sort_tile_list);
+    printf("evaluateTileRanges average time ms: %2.6f\n", stats.evaluate_tile_ranges);
+    printf("renderDepthBuffer average time ms: %2.6f\n", stats.render_depth_buffer);
     printf("Total average time ms: %2.6f\n", totalMs);
     getchar();
 

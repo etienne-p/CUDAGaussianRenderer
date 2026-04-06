@@ -11,34 +11,34 @@ template <typename T, GLenum target>
 struct GLBuffer
 {
   private:
-    GLuint m_BufferId;
-    std::size_t m_Size;
+    GLuint buffer_id_;
+    std::size_t size_;
 
   public:
     struct VertexArrayBinding
     {
       private:
-        GLuint m_Index;
+        GLuint index_;
 
       public:
-        VertexArrayBinding(GLuint bufferId, GLuint index)
+        VertexArrayBinding(GLuint buffer_id, GLuint index)
         {
-            m_Index = index;
+            index_ = index;
             glEnableVertexAttribArray(index);
-            glBindBuffer(target, bufferId);
+            glBindBuffer(target, buffer_id);
         }
         ~VertexArrayBinding()
         {
-            glDisableVertexAttribArray(m_Index);
+            glDisableVertexAttribArray(index_);
         }
     };
 
     struct Binding
     {
       public:
-        Binding(GLuint bufferId)
+        Binding(GLuint buffer_id)
         {
-            glBindBuffer(target, bufferId);
+            glBindBuffer(target, buffer_id);
         }
         ~Binding()
         {
@@ -48,10 +48,10 @@ struct GLBuffer
 
     GLBuffer(std::size_t size, const T* data, GLenum usage)
     {
-        m_Size = size;
+        size_ = size;
 
-        glGenBuffers(1, &m_BufferId);
-        glBindBuffer(target, m_BufferId);
+        glGenBuffers(1, &buffer_id_);
+        glBindBuffer(target, buffer_id_);
         glBufferData(target, sizeof(T) * size, data, usage);
     }
     GLBuffer(std::size_t size, const T* data)
@@ -65,123 +65,123 @@ struct GLBuffer
     {}
     ~GLBuffer()
     {
-        glDeleteBuffers(1, &m_BufferId);
+        glDeleteBuffers(1, &buffer_id_);
     }
 
-    GLuint getBufferId() const
+    GLuint GetBufferId() const
     {
-        return m_BufferId;
+        return buffer_id_;
     }
-    std::size_t getSize() const
+    std::size_t GetSize() const
     {
-        return m_Size;
+        return size_;
     }
-    std::size_t getSizeInBytes() const
+    std::size_t GetSizeInBytes() const
     {
-        return m_Size * sizeof(T);
+        return size_ * sizeof(T);
     }
-    VertexArrayBinding getBinding(GLuint index)
+    VertexArrayBinding GetBinding(GLuint index)
     {
-        return VertexArrayBinding(m_BufferId, index);
+        return VertexArrayBinding(buffer_id_, index);
     }
-    Binding getBinding()
+    Binding GetBinding()
     {
-        return Binding(m_BufferId);
+        return Binding(buffer_id_);
     }
 };
 
 struct GLVertexArray
 {
   private:
-    GLuint m_Id;
+    GLuint id_;
 
   public:
     GLVertexArray()
     {
-        glGenVertexArrays(1, &m_Id);
-        glBindVertexArray(m_Id);
+        glGenVertexArrays(1, &id_);
+        glBindVertexArray(id_);
     }
     ~GLVertexArray()
     {
-        glDeleteVertexArrays(1, &m_Id);
+        glDeleteVertexArrays(1, &id_);
     }
 };
 
 struct CudaGraphicsResource
 {
   private:
-    cudaGraphicsResource* m_Resource;
+    cudaGraphicsResource* resource_;
 
   public:
     template <typename T>
     struct Binding
     {
       private:
-        T* m_Ptr;
-        cudaGraphicsResource* m_Resource;
+        T* mapped_ptr_;
+        cudaGraphicsResource* cuda_resource_;
 
       public:
         Binding(cudaGraphicsResource* resource)
         {
-            m_Resource = resource;
+            cuda_resource_ = resource;
             std::size_t size; // Unused.
-            checkCudaErrors(cudaGraphicsMapResources(1, &resource, 0));
-            checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**) &m_Ptr, &size, resource));
+            CHECK_CUDA_ERRORS(cudaGraphicsMapResources(1, &resource, 0));
+            CHECK_CUDA_ERRORS(cudaGraphicsResourceGetMappedPointer((void**) &mapped_ptr_, &size, resource));
         }
         ~Binding()
         {
-            cudaGraphicsUnmapResources(1, &m_Resource, 0);
+            cudaGraphicsUnmapResources(1, &cuda_resource_, 0);
         }
-        T* getPtr() const
+        T* GetPtr() const
         {
-            return m_Ptr;
+            return mapped_ptr_;
         }
     };
-    CudaGraphicsResource(GLuint bufferId, uint32_t flags)
+    CudaGraphicsResource(GLuint buffer_id, uint32_t flags)
     {
-        cudaGraphicsGLRegisterBuffer(&m_Resource, bufferId, flags);
+        cudaGraphicsGLRegisterBuffer(&resource_, buffer_id, flags);
     }
     ~CudaGraphicsResource()
     {
-        checkCudaErrors(cudaGraphicsUnregisterResource(m_Resource));
+        CHECK_CUDA_ERRORS(cudaGraphicsUnregisterResource(resource_));
     }
     template <typename T>
-    Binding<T> getBinding()
+    Binding<T> GetBinding()
     {
-        return Binding<T>(m_Resource);
+        return Binding<T>(resource_);
     }
 };
 
 struct CudaTimer
 {
   private:
-    cudaEvent_t m_Start;
-    cudaEvent_t m_Stop;
-    float m_ElapsedTimeMs{0};
+    cudaEvent_t start_event_;
+    cudaEvent_t stop_event_;
+    float elapsed_time_ms_{0};
 
   public:
     CudaTimer()
     {
-        cudaEventCreate(&m_Start);
-        cudaEventCreate(&m_Stop);
+        cudaEventCreate(&start_event_);
+        cudaEventCreate(&stop_event_);
     }
     ~CudaTimer()
     {
-        cudaEventDestroy(m_Start);
-        cudaEventDestroy(m_Stop);
+        cudaEventDestroy(start_event_);
+        cudaEventDestroy(stop_event_);
     }
-    void start()
+    void Start()
     {
-        cudaEventRecord(m_Start);
+        cudaEventRecord(start_event_);
     }
-    void stop()
+    void Stop()
     {
-        cudaEventRecord(m_Stop);
-        cudaEventSynchronize(m_Stop);
-        cudaEventElapsedTime(&m_ElapsedTimeMs, m_Start, m_Stop);
+        cudaEventRecord(stop_event_);
+        cudaEventSynchronize(stop_event_);
+        cudaEventElapsedTime(&elapsed_time_ms_, start_event_, stop_event_);
     }
-    float getElapseTimedMs() const
+    float GetElapsedTimeMs() const
     {
-        return m_ElapsedTimeMs;
+        return elapsed_time_ms_;
     }
 };

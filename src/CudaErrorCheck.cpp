@@ -1,5 +1,5 @@
 
-#define checkCudaErrors(call)                                                                 \
+#define CHECK_CUDA_ERRORS(call)                                                               \
     do                                                                                        \
     {                                                                                         \
         cudaError_t err = call;                                                               \
