@@ -19,26 +19,26 @@ GLFWwindow* window;
 // clang-format off
 // Shaders used to display the texture on screen.
 const char* vertexShaderTextured = R"(
-    #version 330 core \n
-    layout(location = 0) in vec3 vertexPosition_modelspace; \n 
-    layout(location = 1) in vec2 vertexUv; \n 
-    out vec2 uv; \n 
-    void main() \n 
-    { \n 
-        gl_Position = vec4(vertexPosition_modelspace, 1); \n
-        uv = vertexUv; \n
-    } \n
+    #version 330 core
+    layout(location = 0) in vec3 vertexPosition_modelspace;
+    layout(location = 1) in vec2 vertexUv;
+    out vec2 uv;
+    void main()
+    {
+        gl_Position = vec4(vertexPosition_modelspace, 1);
+        uv = vertexUv;
+    }
 )";
 
 const char* fragmentShaderTextured = R"(
-    #version 330 core \n
-    in vec2 uv; \n 
-    out vec4 color; \n 
-    uniform sampler2D textureSampler; \n
-    void main() \n 
-    { \n 
-        color = texture(textureSampler, uv).rgba; \n
-    } \n
+    #version 330 core
+    in vec2 uv;
+    out vec4 color;
+    uniform sampler2D textureSampler;
+    void main()
+    {
+        color = texture(textureSampler, uv).rgba;
+    }
 )";
 // clang-format on
 
@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     int sphericalHarmonicsDegree{0};
     int sphericalHarmonicsCount{0};
 
-#if true
+#if false
     // Use randomly generated splats. Useful for testing and debugging.
     constexpr int32_t splatCount = 1 << 4;
     constexpr auto worldBoundsExtent = 4.0f;
@@ -273,7 +273,7 @@ int main(int argc, char* argv[])
     std::vector<float4> positions;
     std::vector<float4> scales;
     std::vector<float4> rotations;
-    std::vector<float4> color;
+    std::vector<float4> colors;
     glm::vec3 boundsMin;
     glm::vec3 boundsMax;
     auto splatCount = parsePly(
@@ -281,7 +281,7 @@ int main(int argc, char* argv[])
         positions,
         scales,
         rotations,
-        color,
+        colors,
         sphericalHarmonics,
         sphericalHarmonicsDegree,
         sphericalHarmonicsCount,
